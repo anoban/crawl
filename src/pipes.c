@@ -50,13 +50,13 @@ HANDLE hChildProcessStdout = NULL;
 // hThisProcessStdout and hChildProcessStdin form the two ends of the other pipe.
 
 
-BOOL LaunchPython(VOID) {
+bool launch_python(void) {
 
     // Create a child process that uses the previously created pipes as stdin & stderr
     PROCESS_INFORMATION piChildProcInfo;
     STARTUPINFOW siChildProcStartupInfo;
-    DWORD dwWaitStatus;
-    BOOL bSuccess = FALSE;      // mark whether the process creation succeeds or not.
+    uint32_t dwWaitStatus;
+    bool bSuccess = FALSE;      // mark whether the process creation succeeds or not.
 
     // Zero the PROCESS_INFORMATION structure.
     memset(&piChildProcInfo, 0, sizeof(PROCESS_INFORMATION));
@@ -72,9 +72,9 @@ BOOL LaunchPython(VOID) {
     // Lookup: https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessw
     // Passing the .exe's name in lpApplicationName causes error 2. "The system cannot find the file specified"
     // Pass the whole string to the lpCommandLine.
-    WCHAR pswzInvocation[] = L"python.exe --version";
+    wchar_t pswzInvocation[] = L"python.exe --version";
     bSuccess = CreateProcessW(NULL,     // assumes python.exe is in path.
-        // lpCommandline must be a modifiable string (wchar array)
+        // lpCommandline must be a modifiable string (wchar_t array)
         // Passing a constant string will raise an access violation exception.
         pswzInvocation,
         NULL,
@@ -91,25 +91,23 @@ BOOL LaunchPython(VOID) {
         fprintf_s(stderr, "Error %lu in CreateProcessW.\n", GetLastError());
         return FALSE;
     }
-    else {
 
-        // Wait 100 milliseconds until Python.exe finishes.
-        dwWaitStatus = WaitForSingleObject(piChildProcInfo.hProcess, 100U);
-        switch (dwWaitStatus) {
-        case (WAIT_ABANDONED):
-            fprintf_s(stderr, "Mutex object was not released by the child thread before the caller thread terminated.\n");
-            break;
-        case(WAIT_TIMEOUT):
-            fprintf_s(stderr, "The time-out interval elapsed, and the object's state is nonsignaled.\n");
-            break;
-        case(WAIT_FAILED):
-            fprintf_s(stderr, "Error %lu: Wait failed.\n", GetLastError());
-            break;
-            // WAIT_OBJECT_0 0x00000000L -> The state of the specified object is signaled.
-        default:
-            break;
-        }
-    }
+     // Wait 100 milliseconds until Python.exe finishes.
+     dwWaitStatus = WaitForSingleObject(piChildProcInfo.hProcess, 100U);
+     switch (dwWaitStatus) {
+     case (WAIT_ABANDONED):
+         fprintf_s(stderr, "Mutex object was not released by the child thread before the caller thread terminated.\n");
+         break;
+     case(WAIT_TIMEOUT):
+         fprintf_s(stderr, "The time-out interval elapsed, and the object's state is nonsignaled.\n");
+         break;
+     case(WAIT_FAILED):
+         fprintf_s(stderr, "Error %lu: Wait failed.\n", GetLastError());
+         break;
+         // WAIT_OBJECT_0 0x00000000L -> The state of the specified object is signaled.
+     default:
+         break;
+     }
 
     // Close handles to the child process and its primary thread.
     CloseHandle(piChildProcInfo.hProcess);
@@ -119,13 +117,13 @@ BOOL LaunchPython(VOID) {
 }
 
 
-BOOL ReadFromPythonsStdout(LPSTR lpszWriteBuffer, DWORD dwBuffSize) {
+bool ReadFromPythonsStdout(char* lpszWriteBuffer, uint32_t dwBuffSize) {
 
     // Reads Python.exe's stdout and writes it to the buffer.
     // If size(stdout) > size(buffer), write will happen until there's no space in the buffer.
 
-    DWORD dwnBytesRead = 0;
-    BOOL bSuccess = FALSE;
+    uint32_t dwnBytesRead = 0;
+    bool bSuccess = FALSE;
 
     bSuccess = ReadFile(hThisProcessStdin, lpszWriteBuffer,
         dwBuffSize, &dwnBytesRead, NULL);
@@ -143,7 +141,7 @@ BOOL ReadFromPythonsStdout(LPSTR lpszWriteBuffer, DWORD dwBuffSize) {
 }
 
 
-BOOL GetPythonVersion(LPSTR lpszVersionBuffer, DWORD dwBufferSize) {
+bool GetPythonVersion(char* lpszVersionBuffer, uint32_t dwBufferSize) {
 
     // A struct to specify the security attributes of the pipes.
     SECURITY_ATTRIBUTES saPipeSecAttrs;
@@ -165,8 +163,8 @@ BOOL GetPythonVersion(LPSTR lpszVersionBuffer, DWORD dwBufferSize) {
         return FALSE;
     }
 
-    BOOL bLaunchedPython = LaunchPython();
-    BOOL bRead = FALSE;
+    bool bLaunchedPython = LaunchPython();
+    bool bRead = FALSE;
 
     if (bLaunchedPython) {
         bRead = ReadFromPythonsStdout(lpszVersionBuffer, dwBufferSize);

@@ -1,14 +1,16 @@
 #include <pyreleases.h>
 
 
-BOOL ActivateVirtualTerminalEscapes(VOID) {
+// May be unnecessary, since Windows consoles seem to be sensitive to VTEs without manually customizing the 
+// Win32 console mode API. At least in these days. MS examples often include this step though! :(
+bool activate_vtes(void) {
 
 	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 	if (hConsole == INVALID_HANDLE_VALUE) {
 		fprintf_s(stderr, "Error %ld in getting hConsole handle.\n", GetLastError());
 		return FALSE;
 	}
-	DWORD dwMode = 0;
+	uint32_t dwMode = 0;
 	if (!GetConsoleMode(hConsole, &dwMode)) {
 		fprintf_s(stderr, "Error %ld in getting console mode.\n", GetLastError());
 		return FALSE;
@@ -23,7 +25,7 @@ BOOL ActivateVirtualTerminalEscapes(VOID) {
 
 
 
-SCRHANDLES HttpGet(_In_ const LPCWSTR restrict pswzServerName, _In_ const LPCWSTR restrict pswzAccessPoint) {
+SCRHANDLES http_get(_In_ const LPCWSTR restrict pswzServerName, _In_ const LPCWSTR restrict pswzAccessPoint) {
 
 	/*
 	* A convenient wrapper around WinHttp functions.
@@ -32,15 +34,15 @@ SCRHANDLES HttpGet(_In_ const LPCWSTR restrict pswzServerName, _In_ const LPCWST
 	*/
 
 	HINTERNET hSession = NULL, hConnection = NULL, hRequest = NULL;
-	BOOL bHttpResults = FALSE;
+	bool bHttpResults = FALSE;
 	SCRHANDLES scrStruct = { .hSession = NULL, .hConnection = NULL, .hRequest = NULL };
 
 	// Returns a valid session handle if successful, or NULL otherwise.
 	// first of the WinHTTP functions called by an application. 
 	// It initializes internal WinHTTP data structures and prepares for future calls from the application.
 	hSession = WinHttpOpen(
-		// impersonating Firefox to avoid request denials from automated clients by servers.
-		L"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/110.0",
+		// impersonating Firefox to avoid request denials.
+		L"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/116.0",
 		WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY,
 		WINHTTP_NO_PROXY_NAME,
 		WINHTTP_NO_PROXY_BYPASS,
@@ -105,7 +107,7 @@ SCRHANDLES HttpGet(_In_ const LPCWSTR restrict pswzServerName, _In_ const LPCWST
 
 
 
-LPSTR ReadHttpResponse(_In_ const SCRHANDLES scrHandles) {
+char* read_http_response(_In_ const SCRHANDLES scrHandles) {
 
 	// if the call to HttpGet() failed,
 	if (scrHandles.hSession == NULL || scrHandles.hConnection == NULL || scrHandles.hRequest == NULL) {
@@ -124,7 +126,7 @@ LPSTR ReadHttpResponse(_In_ const SCRHANDLES scrHandles) {
 	// last write offset, so the next write operation can start from there such that we can prevent
 	// overwriting previously written memory.
 
-	LPSTR pszBuffer = (LPSTR) malloc(RESP_BUFF_SIZE);	// now that's 1 MiB.
+	char* pszBuffer = (char*) malloc(RESP_BUFF_SIZE);	// now that's 1 MiB.
 	// if malloc() failed,
 	if (!pszBuffer) {
 		fprintf_s(stderr, "Failed in memory allocation. Error %ld\n", GetLastError());
@@ -132,9 +134,9 @@ LPSTR ReadHttpResponse(_In_ const SCRHANDLES scrHandles) {
 	}
 
 	ZeroMemory(pszBuffer, RESP_BUFF_SIZE);		// zero out the buffer.
-	LPSTR pszLastWriteOffset = pszBuffer;
+	char* pszLastWriteOffset = pszBuffer;
 
-	BOOL bReception = FALSE;
+	bool bReception = FALSE;
 	bReception = WinHttpReceiveResponse(hRequest, NULL);
 
 	if (!bReception) {
@@ -197,11 +199,11 @@ LPSTR ReadHttpResponse(_In_ const SCRHANDLES scrHandles) {
 
 
 
-LPSTR GetStableReleases(_In_ const LPSTR restrict pszHtmlBody, _In_ const DWORD dwSize, 
-						_In_ const LPDWORD restrict lpdwStRlsSize) {
+char* get_stable_releases(_In_ const char* restrict pszHtmlBody, _In_ const uint32_t dwSize, 
+						_In_ uint32_t* const restrict lpdwStRlsSize) {
 
 	uint64_t dwStartOffset = 0, dwEndOffset = 0, dwBodyBytes = 0;
-	LPSTR pszStable = NULL;
+	char* pszStable = NULL;
 
 	for (uint64_t i = 0; i < dwSize; ++i) {
 
@@ -258,7 +260,7 @@ LPSTR GetStableReleases(_In_ const LPSTR restrict pszHtmlBody, _In_ const DWORD 
 
 
 
-ParsedPyStructs DeserializeStableReleases(_In_ const LPSTR restrict pszBody, _In_ const uint64_t dwSize) {
+ParsedPyStructs sederialize_stable_releases(_In_ const char* restrict pszBody, _In_ const uint64_t dwSize) {
 
 	// Caller is obliged to free the memory in return.pyStart.
 
@@ -306,7 +308,7 @@ ParsedPyStructs DeserializeStableReleases(_In_ const LPSTR restrict pszBody, _In
 	// needed since other release types like arm64, amd32, zip files have similarly formatted urls
 	// that differ only at the end. 
 	// Thus, this conditional is needed to skip over those releases
-	BOOL bIsAmd64 = FALSE;
+	bool bIsAmd64 = FALSE;
 
 	// (dwSize - 100) to prevent reading past the buffer.
 	for (uint64_t i = 0; i < (dwSize - 100); ++i) {
@@ -331,7 +333,7 @@ ParsedPyStructs DeserializeStableReleases(_In_ const LPSTR restrict pszBody, _In
 				dwUrlStart = i + 9;
 				dwVersionStart = i + 43;
 
-				for (DWORD j = 0; j < 50; ++j) {
+				for (uint32_t j = 0; j < 50; ++j) {
 					if (pszBody[i + j + 43] == '/') {
 						dwVersionEnd = i + j + 43;
 						break;
@@ -340,7 +342,7 @@ ParsedPyStructs DeserializeStableReleases(_In_ const LPSTR restrict pszBody, _In
 
 				// The above equality checks will pass even for non <>amd64.exe releases :(
 				// So, check the url's ending for <>amd64.exe
-				for (DWORD j = 0; j < 50; ++j) {
+				for (uint32_t j = 0; j < 50; ++j) {
 					if (pszBody[i + j + 43] == 'a' && pszBody[i + j + 44] == 'm' && pszBody[i + j + 45] == 'd'
 						&& pszBody[i + j + 46] == '6' && pszBody[i + j + 47] == '4' && pszBody[i + j + 48] == '.'
 						&& pszBody[i + j + 49] == 'e' && pszBody[i + j + 50] == 'x' && pszBody[i + j + 51] == 'e') {
@@ -413,11 +415,11 @@ ParsedPyStructs DeserializeStableReleases(_In_ const LPSTR restrict pszBody, _In
 
 
 
-VOID PrintPythonReleases(ParsedPyStructs ppsResult, LPSTR lpszInstalledVersion) {
+void print_python_releases(ParsedPyStructs ppsResult, char* lpszInstalledVersion) {
 
-	CHAR lpszVersionNumber[BUFF_SIZE] = { 0 };
-	DWORD dwStart = 0;
-	for (int i = 7; i < BUFF_SIZE; ++i) {
+	char lpszVersionNumber[BUFF_SIZE] = { 0 };
+	uint32_t dwStart = 0;
+	for (uint64_t i = 7; i < BUFF_SIZE; ++i) {
 		// ASCII 0 -9 is 48 to 57
 		// ASCII . is 46 (47 is /)
 		if ((lpszInstalledVersion[i] >= 46) && (lpszInstalledVersion[i] <= 57)) {
