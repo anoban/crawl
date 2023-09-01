@@ -9,19 +9,31 @@ int wmain(void) {
 
 	hscr_t scr_struct = http_get(SERVER, ACCESS_POINT);
 
-	char* html_content = read_http_response(scr_struct);
+	uint64_t resp_size = 0;
+	char* html_content = read_http_response(scr_struct, &resp_size);
+
+#ifdef _DEBUG
+	puts(html_content);
+#endif // _DEBUG
+
 
 	if (!html_content) return 1;
 
-	uint64_t stable_release_chunksize = 0;
-	char* stable_releases_start = get_stable_releases(html_content, RESP_BUFF_SIZE, &stable_release_chunksize);
+	range_t stable_ranges = get_stable_releases_offset_range(html_content, RESP_BUFF_SIZE, &stable_release_chunksize);
 	
+	// zero out the buffer downstream the end of stable releases, i.e pre releases
+	memset(html_content + stable_ranges.end, 0U, )
+
+#ifdef _DEBUG
+	puts(stable_releases_start);
+#endif // _DEBUG
+
 	if (!stable_releases_start) return 2;
 
 	parsedstructs_t parse_results = deserialize_stable_releases(stable_releases_start, stable_release_chunksize);
 
 	if (!parse_results.py_start) {
-		fprintf_s(stderr, "Error in DeserializeStableReleases, a NULL buffer returned.\n");
+		fprintf_s(stderr, "Error in deserialize_stable_releases, a NULL buffer returned.\n");
 		return 1;
 	}
 
@@ -29,8 +41,8 @@ int wmain(void) {
 	get_installed_python_version(py_version, BUFF_SIZE);
 
 #ifdef _DEBUG
-	printf_s("%u python_t releases have been parsed.\n", parse_results.struct_count);
-	printf_s("Installed python_t version is %s", py_version);
+	printf_s("%llu python releases have been deserialized.\n", parse_results.struct_count);
+	printf_s("Installed python version is %s", py_version);
 #endif // _DEBUG
 
 	print_python_releases(parse_results, py_version);

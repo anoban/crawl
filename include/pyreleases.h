@@ -36,21 +36,24 @@ typedef struct {
 	uint64_t parsed_struct_count;
 } parsedstructs_t;
 
+typedef struct {
+	uint64_t start;
+	uint64_t end;
+} range_t;
+
 #define RESP_BUFF_SIZE 1048576U		// 1 MiBs
 #define N_PYTHON_RELEASES 100U
 
-/*
 // Prototypes.
-*/
 
 bool activate_vtes(void);
 
 hscr_t http_get(_In_ const wchar_t* restrict pswzServerName, _In_ const wchar_t* restrict pswzAccessPoint);
 
-char* read_http_response(_In_ const hscr_t hscr_t);
+char* read_http_response(_In_ const hscr_t scr_handles, _Inout_ uint64_t* const restrict response_size);
 
-char* get_stable_releases(_In_ const char* restrict html_body, _In_ const uint32_t size,
-						  _In_ uint32_t* const restrict stable_releases_chunk_size);
+range_t get_stable_releases_offset_range(_In_ const char* restrict html_body, _In_ const uint32_t size,
+										 _In_ uint32_t* const restrict stable_releases_chunk_size);
 
 parsedstructs_t deserialize_stable_releases(_In_ const char* restrict stable_releases_chunk,
 											_In_ const uint64_t size);

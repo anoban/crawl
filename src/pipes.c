@@ -70,7 +70,7 @@ bool launch_python(void) {
     // Lookup: https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessw
     // Passing the .exe's name in lpApplicationName causes error 2. "The system cannot find the file specified"
     // Pass the whole string to the lpCommandLine.
-    const wchar_t* invoke_command = L"python_t.exe --version";
+    const wchar_t* invoke_command = L"python.exe --version";
     proc_creation_status = CreateProcessW(NULL,     // assumes python.exe is in path.
         // lpCommandline must be a modifiable string (wchar_t array)
         // Passing a constant string will raise an access violation exception.
@@ -121,7 +121,7 @@ bool read_pythons_stdout(_Inout_ const char* restrict write_buffer, _In_ const u
     // If size(stdout) > size(buffer), write will happen until there's no space in the buffer.
 
     uint64_t nbytes_read = 0;
-    bool proc_creation_status = proc_creation_status = ReadFile(this_process_stdin_handle, write_buffer,
+    bool proc_creation_status = ReadFile(this_process_stdin_handle, write_buffer,
         buffsize, &nbytes_read, NULL);
 
 
@@ -129,8 +129,7 @@ bool read_pythons_stdout(_Inout_ const char* restrict write_buffer, _In_ const u
     CloseHandle(child_process_stdout_handle);
 
 #ifdef _DEBUG
-    printf_s("%lu bytes read from python_t's stdout.\n", nbytes_read);
-    puts(write_buffer);
+    printf_s("Python's stdout: %s (%llu bytes).\n", write_buffer, nbytes_read);
 #endif
 
     return proc_creation_status;
@@ -145,28 +144,27 @@ bool get_installed_python_version(_Inout_ const char* restrict version_buffer, _
 
     // Creating Child process ------> Parent process pipe.
     if (!CreatePipe(&this_process_stdin_handle, &child_process_stdout_handle, &pipe_security_attrs, 0)) {
-        fprintf_s(stderr, "Error %lu in creating Child -> Parent pipe.\n", GetLastError());
+        fprintf_s(stderr, "Error %lu in CreatePipe.\n", GetLastError());
         return false;
     }
 
     // Make the parent process's handles uninheritable.
     if (!SetHandleInformation(this_process_stdin_handle, HANDLE_FLAG_INHERIT, 0U)) {
-        fprintf_s(stderr, "Error %lu in disabling handle inheritance.\n", GetLastError());
+        fprintf_s(stderr, "Error %lu in SetHandleInformation.\n", GetLastError());
         return false;
     }
 
-    bool launch_status = launch_python();
-    bool read_status = false;
+    bool launch_status = launch_python(), read_status = false;
 
     if (launch_status) {
         read_status = read_pythons_stdout(version_buffer, buffsize);
         if (!read_status) {
-            fprintf_s(stderr, "Error %lu in reading from python_t.exe's stdout.\n", GetLastError());
+            fprintf_s(stderr, "Error %lu in read_pythons_stdout.\n", GetLastError());
             return false;
         }
     }
     else {
-        fprintf_s(stderr, "Error %lu in launching python_t.exe.\n", GetLastError());
+        fprintf_s(stderr, "Error %lu in launch_python.\n", GetLastError());
         return false;
     }
 
