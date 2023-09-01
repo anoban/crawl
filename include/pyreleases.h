@@ -48,12 +48,11 @@ typedef struct {
 
 bool activate_vtes(void);
 
-hscr_t http_get(_In_ const wchar_t* restrict pswzServerName, _In_ const wchar_t* restrict pswzAccessPoint);
+hscr_t http_get(_In_ const wchar_t* restrict server_name, _In_ const wchar_t* restrict access_point);
 
 char* read_http_response(_In_ const hscr_t scr_handles, _Inout_ uint64_t* const restrict response_size);
 
-range_t get_stable_releases_offset_range(_In_ const char* restrict html_body, _In_ const uint32_t size,
-										 _In_ uint32_t* const restrict stable_releases_chunk_size);
+range_t get_stable_releases_offset_range(_In_ const char* restrict html_body, _In_ const uint32_t size);
 
 parsedstructs_t deserialize_stable_releases(_In_ const char* restrict stable_releases_chunk,
 											_In_ const uint64_t size);

@@ -70,7 +70,18 @@ bool launch_python(void) {
     // Lookup: https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessw
     // Passing the .exe's name in lpApplicationName causes error 2. "The system cannot find the file specified"
     // Pass the whole string to the lpCommandLine.
-    const wchar_t* invoke_command = L"python.exe --version";
+
+    // The Unicode version of this function, CreateProcessW, can modify the contents of this string.
+    // Therefore, this parameter cannot be a pointer to read-only memory (such as a const variable or
+    // a literal string). If this parameter is a constant string, the function may cause an access
+    // violation.
+    wchar_t invoke_command[40] = L"python.exe --version";
+
+    // The lpApplicationName parameter can be NULL. In that case, the module name must be the first white
+    // space–delimited token in the lpCommandLine string. If you are using a long file name that contains
+    // a space, use quoted strings to indicate where the file name ends and the arguments begin; otherwise,
+    // the file name is ambiguous.
+
     proc_creation_status = CreateProcessW(NULL,     // assumes python.exe is in path.
         // lpCommandline must be a modifiable string (wchar_t array)
         // Passing a constant string will raise an access violation exception.

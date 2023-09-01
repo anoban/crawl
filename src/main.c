@@ -1,11 +1,11 @@
 #include <pyreleases.h>
 
-int wmain(void) {
+int main(void) {
 
 	activate_vtes();
 
-	const wchar_t* const SERVER = L"www.python.org";
-	const wchar_t* const ACCESS_POINT = L"/downloads/windows/";
+	wchar_t* SERVER = L"www.python.org";
+	wchar_t* ACCESS_POINT = L"/downloads/windows/";
 
 	hscr_t scr_struct = http_get(SERVER, ACCESS_POINT);
 
@@ -13,24 +13,23 @@ int wmain(void) {
 	char* html_content = read_http_response(scr_struct, &resp_size);
 
 #ifdef _DEBUG
-	puts(html_content);
+	printf_s("Response: %s\n %llu bytes\n", html_content, resp_size);
 #endif // _DEBUG
 
 
 	if (!html_content) return 1;
 
-	range_t stable_ranges = get_stable_releases_offset_range(html_content, RESP_BUFF_SIZE, &stable_release_chunksize);
+	range_t stable_ranges = get_stable_releases_offset_range(html_content, RESP_BUFF_SIZE);
 	
 	// zero out the buffer downstream the end of stable releases, i.e pre releases
-	memset(html_content + stable_ranges.end, 0U, )
+	memset(html_content + stable_ranges.end, 0U, resp_size - stable_ranges.end);
 
 #ifdef _DEBUG
-	puts(stable_releases_start);
+	puts(html_content + stable_ranges.start);
 #endif // _DEBUG
 
-	if (!stable_releases_start) return 2;
-
-	parsedstructs_t parse_results = deserialize_stable_releases(stable_releases_start, stable_release_chunksize);
+	parsedstructs_t parse_results = deserialize_stable_releases(html_content + stable_ranges.start,
+																stable_ranges.end - stable_ranges.start);
 
 	if (!parse_results.py_start) {
 		fprintf_s(stderr, "Error in deserialize_stable_releases, a NULL buffer returned.\n");
@@ -48,7 +47,6 @@ int wmain(void) {
 	print_python_releases(parse_results, py_version);
 
 	free(html_content);
-	free(stable_releases_start);
 	free(parse_results.py_start);
 
 	return 0;

@@ -24,7 +24,7 @@ bool activate_vtes(void) {
 
 
 
-hscr_t http_get(_In_ const wchar_t* restrict pswzServerName, _In_ const wchar_t* restrict pswzAccessPoint) {
+hscr_t http_get(_In_ const wchar_t* restrict server_name, _In_ const wchar_t* restrict access_point) {
 
 	/*
 	* A convenient wrapper around WinHttp functions.
@@ -53,7 +53,7 @@ hscr_t http_get(_In_ const wchar_t* restrict pswzServerName, _In_ const wchar_t*
 		// Returns a valid connection handle to the HTTP session if the connection is successful, or NULL otherwise.
 		connection_handle = WinHttpConnect(
 			session_handle,
-			pswzServerName,
+			server_name,
 			INTERNET_DEFAULT_HTTP_PORT,		// Uses port 80 for HTTP and port 443 for HTTPS.
 			0);
 
@@ -70,7 +70,7 @@ hscr_t http_get(_In_ const wchar_t* restrict pswzServerName, _In_ const wchar_t*
 		request_handle = WinHttpOpenRequest(
 			connection_handle,
 			L"GET",
-			pswzAccessPoint,
+			access_point,
 			NULL,	// Pointer to a string that contains the HTTP version. If this parameter is NULL, the function uses HTTP/1.1
 			WINHTTP_NO_REFERER,
 			WINHTTP_DEFAULT_ACCEPT_TYPES, // Pointer to a null-terminated array of string pointers that 
@@ -214,8 +214,7 @@ char* read_http_response(_In_ const hscr_t scr_handles, _Inout_ uint64_t* const 
 
 
 // return the offset of the buffer where the stable releases start.
-range_t get_stable_releases_offset_range(_In_ const char* restrict html_body, _In_ const uint32_t size, 
-						_In_ uint32_t* const restrict stable_releases_chunk_size) {
+range_t get_stable_releases_offset_range(_In_ const char* restrict html_body, _In_ const uint32_t size) {
 
 	uint64_t start_offset = 0, end_offset = 0, stable_releases_start = 0;
 
@@ -224,9 +223,9 @@ range_t get_stable_releases_offset_range(_In_ const char* restrict html_body, _I
 		// if the text matches the <h2> tag,
 		if (html_body[i] == '<' && html_body[i + 1] == 'h' &&
 			html_body[i + 2] == '2' && html_body[i + 3] == '>') {
-			
+
 			// <h2>Stable Releases</h2>
-			if (start_offset == 0 && html_body[i + 4] == 'S' && html_body[i + 5] == 't' && 
+			if (start_offset == 0 && html_body[i + 4] == 'S' && html_body[i + 5] == 't' &&
 				html_body[i + 6] == 'a' && html_body[i + 7] == 'b' && html_body[i + 8] == 'l' &&
 				html_body[i + 9] == 'e') {
 				// The HTML body contains only a single <h2> tag with an inner text that starts with "Stable"
@@ -239,17 +238,15 @@ range_t get_stable_releases_offset_range(_In_ const char* restrict html_body, _I
 
 			// <h2>Pre-releases</h2>
 			if (html_body[i + 4] == 'P' && html_body[i + 5] == 'r' && html_body[i + 6] == 'e' &&
-				html_body[i + 7] == '-' && html_body[i + 8] == 'r' && html_body[i + 9] == 'e'){
+				html_body[i + 7] == '-' && html_body[i + 8] == 'r' && html_body[i + 9] == 'e') {
 				// The HTML body contains only a single <h2> tag with an inner text that starts with "Pre"
 				// so ignoring the "leases</h2> part for cycle trimming.
 				end_offset = (i - 1);
 				// If found, break out of the loop.
 				break;
 			}
-		}		
+		}
 	}
-	
-	*stable_releases_chunk_size = (end_offset - start_offset);
 
 #ifdef _DEBUG
 	printf_s("Start offset is %llu and stop offset id %llu. Stable releases string is %llu bytes long.\n",
