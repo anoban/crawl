@@ -3,7 +3,7 @@
 #include <string.h>
 #include <time.h>
 
-// A dummy Python.exe to test py-releases.exe
+// A dummy python_t.exe to test py-releases.exe
 
 #ifdef __TEST__
 
@@ -16,7 +16,7 @@ int main(int argc, char* argv[]) {
     major = (rand() % 9) + 1;
 
     if (!strcmp(argv[1], "--version")) {
-        printf_s("Python 3.%d.%d\n", minor, major);
+        printf_s("python_t 3.%d.%d\n", minor, major);
     }
     return 0;
 }

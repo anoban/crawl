@@ -38,63 +38,61 @@
 
 /*------------------------  Globals  ---------------------------------*/
 // Note that here we are only interested in a oneway communication.
-// We need the launcher process to read the Python's stdout.
+// We need the launcher process to read the python_t's stdout.
 
 // Parent process
-HANDLE hThisProcessStdin = NULL;
+HANDLE this_process_stdin_handle = NULL;
 
 // Child process
-HANDLE hChildProcessStdout = NULL;
+HANDLE child_process_stdout_handle = NULL;
 
-// hThisProcessStdin and hChildProcessStdout form the two ends of one pipe.
+// this_process_stdin_handle and child_process_stdout_handle form the two ends of one pipe.
 // hThisProcessStdout and hChildProcessStdin form the two ends of the other pipe.
 
 
 bool launch_python(void) {
 
     // Create a child process that uses the previously created pipes as stdin & stderr
-    PROCESS_INFORMATION piChildProcInfo;
-    STARTUPINFOW siChildProcStartupInfo;
-    uint32_t dwWaitStatus;
-    bool bSuccess = FALSE;      // mark whether the process creation succeeds or not.
+    PROCESS_INFORMATION child_proc_info;
+    STARTUPINFOW child_proc_startup_info;
+    uint32_t wait_status;
+    bool proc_creation_status = false;      // mark whether the process creation succeeds or not.
 
-    // Zero the PROCESS_INFORMATION structure.
-    memset(&piChildProcInfo, 0, sizeof(PROCESS_INFORMATION));
+    // Zero out the above structs.
+    memset(&child_proc_info, 0U, sizeof(PROCESS_INFORMATION));
+    memset(&child_proc_startup_info, 0U, sizeof(STARTUPINFO));
 
-    // Initialize STARTUPINFO structure.
-    memset(&siChildProcStartupInfo, 0, sizeof(STARTUPINFO));
-
-    siChildProcStartupInfo.cb = sizeof(STARTUPINFO);
-    siChildProcStartupInfo.hStdError = siChildProcStartupInfo.hStdOutput = hChildProcessStdout;
-    siChildProcStartupInfo.dwFlags = STARTF_USESHOWWINDOW | STARTF_USESTDHANDLES;
-    siChildProcStartupInfo.wShowWindow = SW_HIDE;   // Prevents cmd window from flashing. Requires STARTF_USESHOWWINDOW in dwFlags.
+    child_proc_startup_info.cb = sizeof(STARTUPINFO);
+    child_proc_startup_info.hStdError = child_proc_startup_info.hStdOutput = child_process_stdout_handle;
+    child_proc_startup_info.dwFlags = STARTF_USESHOWWINDOW | STARTF_USESTDHANDLES;
+    child_proc_startup_info.wShowWindow = SW_HIDE;   // Prevents cmd window from flashing. Requires STARTF_USESHOWWINDOW in dwFlags.
 
     // Lookup: https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessw
     // Passing the .exe's name in lpApplicationName causes error 2. "The system cannot find the file specified"
     // Pass the whole string to the lpCommandLine.
-    wchar_t pswzInvocation[] = L"python.exe --version";
-    bSuccess = CreateProcessW(NULL,     // assumes python.exe is in path.
+    const wchar_t* const invoke_command = L"python_t.exe --version";
+    proc_creation_status = CreateProcessW(NULL,     // assumes python_t.exe is in path.
         // lpCommandline must be a modifiable string (wchar_t array)
         // Passing a constant string will raise an access violation exception.
-        pswzInvocation,
+        invoke_command,
         NULL,
         NULL,
-        TRUE,
+        true,
         CREATE_NO_WINDOW,
         NULL,
         NULL,
-        &siChildProcStartupInfo,
-        &piChildProcInfo);
+        &child_proc_startup_info,
+        &child_proc_info);
 
     // If invocation failed,
-    if (!bSuccess) {
+    if (!proc_creation_status) {
         fprintf_s(stderr, "Error %lu in CreateProcessW.\n", GetLastError());
-        return FALSE;
+        return false;
     }
 
-     // Wait 100 milliseconds until Python.exe finishes.
-     dwWaitStatus = WaitForSingleObject(piChildProcInfo.hProcess, 100U);
-     switch (dwWaitStatus) {
+     // Wait 100 milliseconds until python_t.exe finishes.
+     wait_status = WaitForSingleObject(child_proc_info.hProcess, 100U);
+     switch (wait_status) {
      case (WAIT_ABANDONED):
          fprintf_s(stderr, "Mutex object was not released by the child thread before the caller thread terminated.\n");
          break;
@@ -110,74 +108,68 @@ bool launch_python(void) {
      }
 
     // Close handles to the child process and its primary thread.
-    CloseHandle(piChildProcInfo.hProcess);
-    CloseHandle(piChildProcInfo.hThread);
+    CloseHandle(child_proc_info.hProcess);
+    CloseHandle(child_proc_info.hThread);
 
-    return TRUE;
+    return true;
 }
 
 
-bool ReadFromPythonsStdout(char* lpszWriteBuffer, uint32_t dwBuffSize) {
+bool read_pythons_stdout(_Inout_ const char* restrict write_buffer, _In_ const uint64_t buffsize) {
 
-    // Reads Python.exe's stdout and writes it to the buffer.
+    // Reads python_t.exe's stdout and writes it to the buffer.
     // If size(stdout) > size(buffer), write will happen until there's no space in the buffer.
 
-    uint32_t dwnBytesRead = 0;
-    bool bSuccess = FALSE;
-
-    bSuccess = ReadFile(hThisProcessStdin, lpszWriteBuffer,
-        dwBuffSize, &dwnBytesRead, NULL);
+    uint64_t nbytes_read = 0;
+    bool proc_creation_status = proc_creation_status = ReadFile(this_process_stdin_handle, write_buffer,
+        buffsize, &nbytes_read, NULL);
 
 
     // Close the child's ends of the pipe.
-    CloseHandle(hChildProcessStdout);
+    CloseHandle(child_process_stdout_handle);
 
 #ifdef _DEBUG
-    printf_s("%lu bytes read from Python's stdout.\n", dwnBytesRead);
-    puts(lpszWriteBuffer);
+    printf_s("%lu bytes read from python_t's stdout.\n", nbytes_read);
+    puts(write_buffer);
 #endif
 
-    return bSuccess;
+    return proc_creation_status;
 }
 
 
-bool GetPythonVersion(char* lpszVersionBuffer, uint32_t dwBufferSize) {
+bool get_installed_python_version(_Inout_ const char* restrict version_buffer, _In_ const uint64_t buffsize) {
 
     // A struct to specify the security attributes of the pipes.
-    SECURITY_ATTRIBUTES saPipeSecAttrs;
-
-    saPipeSecAttrs.nLength = sizeof(saPipeSecAttrs);
-    // This makes pipe handles inheritable.
-    saPipeSecAttrs.bInheritHandle = TRUE;
-    saPipeSecAttrs.lpSecurityDescriptor = NULL;
+    // .bInheritHandle = true makes pipe handles inheritable.
+    SECURITY_ATTRIBUTES pipe_security_attrs = {.bInheritHandle = true, .lpSecurityDescriptor = NULL, .nLength = sizeof(SECURITY_ATTRIBUTES) };
 
     // Creating Child process ------> Parent process pipe.
-    if (!CreatePipe(&hThisProcessStdin, &hChildProcessStdout, &saPipeSecAttrs, 0)) {
+    if (!CreatePipe(&this_process_stdin_handle, &child_process_stdout_handle, &pipe_security_attrs, 0)) {
         fprintf_s(stderr, "Error %lu in creating Child -> Parent pipe.\n", GetLastError());
-        return FALSE;
+        return false;
     }
 
     // Make the parent process's handles uninheritable.
-    if (!SetHandleInformation(hThisProcessStdin, HANDLE_FLAG_INHERIT, 0U)) {
+    if (!SetHandleInformation(this_process_stdin_handle, HANDLE_FLAG_INHERIT, 0U)) {
         fprintf_s(stderr, "Error %lu in disabling handle inheritance.\n", GetLastError());
-        return FALSE;
+        return false;
     }
 
-    bool bLaunchedPython = LaunchPython();
-    bool bRead = FALSE;
+    bool launch_status = launch_python();
+    bool read_status = false;
 
-    if (bLaunchedPython) {
-        bRead = ReadFromPythonsStdout(lpszVersionBuffer, dwBufferSize);
-        if (!bRead) {
-            fprintf_s(stderr, "Error %lu in reading from Python.exe's stdout.\n", GetLastError());
-            return FALSE;
+    if (launch_status) {
+        read_status = ReadFromPythonsStdout(version_buffer, buffsize);
+        if (!read_status) {
+            fprintf_s(stderr, "Error %lu in reading from python_t.exe's stdout.\n", GetLastError());
+            return false;
         }
     }
     else {
-        fprintf_s(stderr, "Error %lu in launching Python.exe.\n", GetLastError());
-        return FALSE;
+        fprintf_s(stderr, "Error %lu in launching python_t.exe.\n", GetLastError());
+        return false;
     }
 
-    return TRUE;
+    return true;
 
 }

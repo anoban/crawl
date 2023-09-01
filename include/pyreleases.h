@@ -19,21 +19,21 @@
 #pragma warning(disable: 4710)
 
 typedef struct {
-	char pszVersionString[40];
-	char pszAMD64DownloadURL[150];
-} Python;
+	char version_string[40];
+	char amd64_download_url[150];
+} python_t;
 
 typedef struct {
-	HINTERNET hSession;
-	HINTERNET hConnection;
-	HINTERNET hRequest;
-} SCRHANDLES;
+	HINTERNET session_handle;
+	HINTERNET connection_handle;
+	HINTERNET request_handle;
+} hscr_t;
 
 typedef struct {
-	Python* pyStart;
-	uint32_t dwStructCount;
-	uint32_t dwParsedStructCount;
-} ParsedPyStructs;
+	python_t* py_start;
+	uint64_t struct_count;
+	uint64_t parsed_struct_count;
+} parsedstructs_t;
 
 #define RESP_BUFF_SIZE 1048576U		// 1 MiBs
 #define N_PYTHON_RELEASES 100U
@@ -42,12 +42,22 @@ typedef struct {
 // Prototypes.
 */
 
-bool ActivateVirtualTerminalEscapes(void);
-SCRHANDLES HttpGet(LPCWSTR pswzServerName, LPCWSTR pswzAccessPoint);
-char* ReadHttpResponse(SCRHANDLES scrHandles);
-char* GetStableReleases(char* pszHtmlBody, uint32_t dwSize, uint32_t* lpdwStRlsSize);
-ParsedPyStructs DeserializeStableReleases(char* pszBody, uint32_t dwSize);
-void PrintPythonReleases(ParsedPyStructs ppsResult, char* lpszInstalledVersion);
-bool LaunchPython(void);
-bool ReadFromPythonsStdout(char* lpszWriteBuffer, uint32_t dwBuffSize);
-bool GetPythonVersion(char* lpszVersionBuffer, uint32_t dwBufferSize);
+bool activate_vtes(void);
+
+hscr_t http_get(_In_ const wchar_t* restrict pswzServerName, _In_ const wchar_t* restrict pswzAccessPoint);
+
+char* read_http_response(_In_ const hscr_t hscr_t);
+
+char* get_stable_releases(_In_ const char* restrict html_body, _In_ const uint32_t size,
+						  _In_ uint32_t* const restrict stable_releases_chunk_size);
+
+parsedstructs_t deserialize_stable_releases(_In_ const char* restrict stable_releases_chunk,
+											_In_ const uint64_t size);
+
+void print_python_releases(_In_ const parsedstructs_t parse_results, _In_ const char* restrict installed_python_version);
+
+bool launch_python(void);
+
+bool read_pythons_stdout(_Inout_ const char* restrict write_buffer, _In_ const uint64_t buffsize);
+
+bool get_installed_python_version(_Inout_ const char* restrict version_buffer, _In_ const uint64_t buffsize);

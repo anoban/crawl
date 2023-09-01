@@ -2,29 +2,25 @@
 
 int wmain(void) {
 
-	ActivateVirtualTerminalEscapes();
+	activate_vtes();
 
-	const LPWSTR SERVER = L"www.python.org";
-	const LPWSTR ACCESS_POINT = L"/downloads/windows/";
+	const wchar_t* const SERVER = L"www.python_t.org";
+	const wchar_t* const ACCESS_POINT = L"/downloads/windows/";
 
-	SCRHANDLES hScrStructs = HttpGet(SERVER, ACCESS_POINT);
+	hscr_t scr_struct = http_get(SERVER, ACCESS_POINT);
 
-	char* pszHtml = ReadHttpResponse(hScrStructs);
+	char* html_content = read_http_response(scr_struct);
 
-	if (!pszHtml) {
-		return 1;
-	}
+	if (!html_content) return 1;
 
-	uint32_t dwStableReleasesSize = 0;
-	char* pszStable = GetStableReleases(pszHtml, RESP_BUFF_SIZE, &dwStableReleasesSize);
+	uint64_t stable_release_chunksize = 0;
+	char* stable_releases_start = get_stable_releases(html_content, RESP_BUFF_SIZE, &stable_release_chunksize);
 	
-	if (!pszStable) {
-		return 1;
-	}
+	if (!stable_releases_start) return 2;
 
-	ParsedPyStructs ppsResult = DeserializeStableReleases(pszStable, dwStableReleasesSize);
+	parsedstructs_t parse_results = deserialize_stable_releases(stable_releases_start, stable_release_chunksize);
 
-	if (!ppsResult.pyStart) {
+	if (!parse_results.py_start) {
 		fprintf_s(stderr, "Error in DeserializeStableReleases, a NULL buffer returned.\n");
 		return 1;
 	}
@@ -32,14 +28,14 @@ int wmain(void) {
 	char lpszVersion[BUFF_SIZE] = { 0 };
 	GetPythonVersion(lpszVersion, BUFF_SIZE);
 #ifdef _DEBUG
-	printf_s("%u Python releases have been parsed.\n", ppsResult.dwStructCount);
-	printf_s("Installed Python version is %s", lpszVersion);
+	printf_s("%u python_t releases have been parsed.\n", parse_results.struct_count);
+	printf_s("Installed python_t version is %s", lpszVersion);
 #endif // _DEBUG
-	PrintPythonReleases(ppsResult, lpszVersion);
+	PrintPythonReleases(parse_results, lpszVersion);
 
-	free(pszHtml);
-	free(pszStable);
-	free(ppsResult.pyStart);
+	free(html_content);
+	free(stable_releases_start);
+	free(parse_results.py_start);
 
 	return 0;
 }
