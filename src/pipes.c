@@ -70,8 +70,8 @@ bool launch_python(void) {
     // Lookup: https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessw
     // Passing the .exe's name in lpApplicationName causes error 2. "The system cannot find the file specified"
     // Pass the whole string to the lpCommandLine.
-    const wchar_t* const invoke_command = L"python_t.exe --version";
-    proc_creation_status = CreateProcessW(NULL,     // assumes python_t.exe is in path.
+    const wchar_t* invoke_command = L"python_t.exe --version";
+    proc_creation_status = CreateProcessW(NULL,     // assumes python.exe is in path.
         // lpCommandline must be a modifiable string (wchar_t array)
         // Passing a constant string will raise an access violation exception.
         invoke_command,
@@ -159,7 +159,7 @@ bool get_installed_python_version(_Inout_ const char* restrict version_buffer, _
     bool read_status = false;
 
     if (launch_status) {
-        read_status = ReadFromPythonsStdout(version_buffer, buffsize);
+        read_status = read_pythons_stdout(version_buffer, buffsize);
         if (!read_status) {
             fprintf_s(stderr, "Error %lu in reading from python_t.exe's stdout.\n", GetLastError());
             return false;

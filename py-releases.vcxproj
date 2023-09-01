@@ -108,7 +108,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <WarningLevel>Level4</WarningLevel>
+      <WarningLevel>EnableAllWarnings</WarningLevel>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
@@ -117,8 +117,11 @@
       <UseStandardPreprocessor>true</UseStandardPreprocessor>
       <PreprocessKeepComments>false</PreprocessKeepComments>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
-      <ExceptionHandling>false</ExceptionHandling>
+      <ExceptionHandling>Async</ExceptionHandling>
       <CompileAs>CompileAsC</CompileAs>
+      <DiagnosticsFormat>Caret</DiagnosticsFormat>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <EnableParallelCodeGeneration>true</EnableParallelCodeGeneration>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -127,7 +130,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <WarningLevel>Level4</WarningLevel>
+      <WarningLevel>EnableAllWarnings</WarningLevel>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
@@ -138,8 +141,14 @@
       <UseStandardPreprocessor>true</UseStandardPreprocessor>
       <PreprocessKeepComments>false</PreprocessKeepComments>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
-      <ExceptionHandling>false</ExceptionHandling>
+      <ExceptionHandling>Async</ExceptionHandling>
       <CompileAs>CompileAsC</CompileAs>
+      <DiagnosticsFormat>Caret</DiagnosticsFormat>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <DebugInformationFormat>None</DebugInformationFormat>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <EnableParallelCodeGeneration>true</EnableParallelCodeGeneration>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -155,7 +164,6 @@
     <ClCompile Include="src\lib.c" />
     <ClCompile Include="src\main.c" />
     <ClCompile Include="src\pipes.c" />
-    <ClCompile Include="src\Python.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

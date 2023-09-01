@@ -17,6 +17,7 @@
 
 #pragma comment(lib, "Winhttp")
 #pragma warning(disable: 4710)
+#pragma warning(disable: 4820)		// struct padding
 
 typedef struct {
 	char version_string[40];

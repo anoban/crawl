@@ -178,7 +178,7 @@ char* read_http_response(_In_ const hscr_t scr_handles) {
 		printf_s("Read %lu bytes in this iteration.\n", bytes_in_current_query);
 #endif // _DEBUG
 
-		if (total_bytes_read_from_response <= (RESP_BUFF_SIZE - 128U)) {
+		if (total_bytes_read_from_response >= (RESP_BUFF_SIZE - 128U)) {
 			fprintf_s(stderr, "Warning: Truncation of response due to insufficient memory!\n");
 			break;
 		}
@@ -274,10 +274,6 @@ parsedstructs_t deserialize_stable_releases(_In_ const char* restrict stable_rel
 	parsedstructs_t parse_results =  { .py_start = NULL, .struct_count = N_PYTHON_RELEASES,
 									.parsed_struct_count = 0};
 
-#ifdef _DEBUG
-	printf_s("python_t struct: %llu bytes.\n", sizeof(python_t));
-#endif // _DEBUG
-
 	// Allocate memory for N_PYTHON_RELEASES python_t structs.
 	python_t* py_releases = (python_t*) malloc(sizeof(python_t) * N_PYTHON_RELEASES);
 
@@ -291,17 +287,11 @@ parsedstructs_t deserialize_stable_releases(_In_ const char* restrict stable_rel
 	// Zero out the malloced memory.
 	memset(py_releases, 0, sizeof(python_t) * N_PYTHON_RELEASES);
 
-#ifdef _DEBUG
-	printf_s("python_t structs start: %p.\n", &(py_releases[0]));
-	printf_s("python_t structs next: %p.\n", &(py_releases[1]));
-	printf_s("python_t structs end: %p.\n", &(py_releases[100]));
-#endif // _DEBUG
-
 	// A counter to remember last deserialized python_t struct.
-	uint64_t dwLastDeserializedOffset = 0;
+	uint64_t last_deserialized_struct_offset = 0;
 
 	// Start and end offsets of the version and url strings.
-	uint64_t dwUrlStart = 0, dwUrlEnd = 0, dwVersionStart = 0, dwVersionEnd = 0;
+	uint64_t url_start_offset = 0, url_end_offset = 0, version_start_offset = 0, version_end_offset = 0;
 
 	// Target template ->
 	// <a href="https://www.python_t.org/ftp/python_t/3.10.11/python_t-3.10.11-amd64.exe">
@@ -310,7 +300,7 @@ parsedstructs_t deserialize_stable_releases(_In_ const char* restrict stable_rel
 	// needed since other release types like arm64, amd32, zip files have similarly formatted urls
 	// that differ only at the end. 
 	// Thus, this conditional is needed to skip over those releases
-	bool bIsAmd64 = false;
+	bool is_amd64 = false;
 
 	// (size - 100) to prevent reading past the buffer.
 	for (uint64_t i = 0; i < (size - 100); ++i) {
@@ -332,12 +322,12 @@ parsedstructs_t deserialize_stable_releases(_In_ const char* restrict stable_rel
 				stable_releases_chunk[i + 38] == 't' && stable_releases_chunk[i + 39] == 'h' && stable_releases_chunk[i + 40] == 'o' &&
 				stable_releases_chunk[i + 41] == 'n' && stable_releases_chunk[i + 42] == '/') {
 
-				dwUrlStart = i + 9;
-				dwVersionStart = i + 43;
+				url_start_offset = i + 9;
+				version_start_offset = i + 43;
 
 				for (uint32_t j = 0; j < 50; ++j) {
 					if (stable_releases_chunk[i + j + 43] == '/') {
-						dwVersionEnd = i + j + 43;
+						version_end_offset = i + j + 43;
 						break;
 					}
 				}
@@ -348,62 +338,60 @@ parsedstructs_t deserialize_stable_releases(_In_ const char* restrict stable_rel
 					if (stable_releases_chunk[i + j + 43] == 'a' && stable_releases_chunk[i + j + 44] == 'm' && stable_releases_chunk[i + j + 45] == 'd'
 						&& stable_releases_chunk[i + j + 46] == '6' && stable_releases_chunk[i + j + 47] == '4' && stable_releases_chunk[i + j + 48] == '.'
 						&& stable_releases_chunk[i + j + 49] == 'e' && stable_releases_chunk[i + j + 50] == 'x' && stable_releases_chunk[i + j + 51] == 'e') {
-						dwUrlEnd = i + j + 52;
+						url_end_offset = i + j + 52;
 						// If every char checks out, set the flag true.
-						bIsAmd64 = true;
+						is_amd64 = true;
 						break;
 					}
 				}
 			}
 
 		// If the release is indeed an amd64.exe release,
-		if(bIsAmd64) {
+		if(is_amd64) {
 
 			/* Zeroed the whole malloced buffer, at line 283. So, this is unnecessary now. */
 			// Zero the struct fields.
-			// memset(py_releases[dwLastDeserializedOffset].version_string, 0, 40);
-			// memset(py_releases[dwLastDeserializedOffset].amd64_download_url, 0, 150);
+			// memset(py_releases[last_deserialized_struct_offset].version_string, 0, 40);
+			// memset(py_releases[last_deserialized_struct_offset].amd64_download_url, 0, 150);
 
 #ifdef _DEBUG
-			printf_s("Version length: %u\n", dwVersionEnd - dwVersionStart);
-			printf_s("Url length: %u\n", dwUrlEnd - dwUrlStart);
-#endif // _DEBUG
+			printf_s("Version length: %u\n", version_end_offset - version_start_offset);
+			printf_s("Url length: %u\n", url_end_offset - url_start_offset);
 
-#ifdef _DEBUG
-			putchar(stable_releases_chunk[dwVersionStart]);
-			putchar(stable_releases_chunk[dwVersionStart + 1]);
+			putchar(stable_releases_chunk[version_start_offset]);
+			putchar(stable_releases_chunk[version_start_offset + 1]);
 			puts("");
-			putchar(stable_releases_chunk[dwUrlStart]);
-			putchar(stable_releases_chunk[dwUrlStart + 1]);
+			putchar(stable_releases_chunk[url_start_offset]);
+			putchar(stable_releases_chunk[url_start_offset + 1]);
 			puts("");
 
 			printf_s("Read address for Version string starts at %p and ends at %p.\n",
-				(stable_releases_chunk + dwVersionStart), (stable_releases_chunk + dwVersionEnd));
+				(stable_releases_chunk + version_start_offset), (stable_releases_chunk + version_end_offset));
 			printf_s("Read address for Url string starts at %p and ends at %p.\n",
-				(stable_releases_chunk + dwUrlStart), (stable_releases_chunk + dwUrlEnd));
+				(stable_releases_chunk + url_start_offset), (stable_releases_chunk + url_end_offset));
 #endif // _DEBUG
 
 			// Copy the chars representing the release version to the deserialized struct's 
 			// version_string field.
-			memcpy_s((py_releases[dwLastDeserializedOffset]).version_string, 40U,
-					(stable_releases_chunk + dwVersionStart), (dwVersionEnd - dwVersionStart));
+			memcpy_s((py_releases[last_deserialized_struct_offset]).version_string, 40U,
+					(stable_releases_chunk + version_start_offset), (version_end_offset - version_start_offset));
 
 			// Copy the chars representing the release url to the deserialized struct's 
 			// amd64_download_url field.
-			memcpy_s((py_releases[dwLastDeserializedOffset]).amd64_download_url, 150U,
-				(stable_releases_chunk + dwUrlStart), (dwUrlEnd - dwUrlStart));
+			memcpy_s((py_releases[last_deserialized_struct_offset]).amd64_download_url, 150U,
+				(stable_releases_chunk + url_start_offset), (url_end_offset - url_start_offset));
 
 			// Increment the counter for last deserialized struct by one.
-			dwLastDeserializedOffset++;
+			last_deserialized_struct_offset++;
 
 			// Increment the deserialized struct counter in parsedstructs_t by one.
 			parse_results.parsed_struct_count++;
 
 			// Reset the flag.
-			bIsAmd64 = false;
+			is_amd64 = false;
 
 			// Reset the offsets.
-			dwUrlStart = 0, dwUrlEnd = 0, dwVersionStart = 0, dwVersionEnd = 0;
+			url_start_offset = 0, url_end_offset = 0, version_start_offset = 0, version_end_offset = 0;
 
 			// If the release is not an amd64.exe,
 			}else continue;

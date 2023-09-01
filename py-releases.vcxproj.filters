@@ -29,8 +29,5 @@
     <ClCompile Include="src\pipes.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Python.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
 </Project>

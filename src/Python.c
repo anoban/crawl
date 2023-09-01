@@ -5,8 +5,6 @@
 
 // A dummy python_t.exe to test py-releases.exe
 
-#ifdef __TEST__
-
 int main(int argc, char* argv[]) {
 
     srand(time(NULL));
@@ -20,5 +18,3 @@ int main(int argc, char* argv[]) {
     }
     return 0;
 }
-
-#endif // __TEST__
