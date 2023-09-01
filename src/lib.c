@@ -6,17 +6,17 @@
 bool activate_vtes(void) {
 	HANDLE console_handle = GetStdHandle(STD_OUTPUT_HANDLE);
 	if (console_handle == INVALID_HANDLE_VALUE) {
-		fprintf_s(stderr, "Error %lu in GetStdHandle.\n", GetLastError());
+		fwprintf_s(stderr, L"Error %lu in GetStdHandle.\n", GetLastError());
 		return false;
 	}
 	uint32_t console_mode = 0;
 	if (!GetConsoleMode(console_handle, &console_mode)) {
-		fprintf_s(stderr, "Error %lu in GetConsoleMode.\n", GetLastError());
+		fwprintf_s(stderr, L"Error %lu in GetConsoleMode.\n", GetLastError());
 		return false;
 	}
 	console_mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
 	if (!SetConsoleMode(console_handle, console_mode)) {
-		fprintf_s(stderr, "Error %lu in SetConsoleMode.\n", GetLastError());
+		fwprintf_s(stderr, L"Error %lu in SetConsoleMode.\n", GetLastError());
 		return false;
 	}
 	return true;
@@ -59,7 +59,7 @@ hscr_t http_get(_In_ const wchar_t* restrict server_name, _In_ const wchar_t* re
 
 	}
 	else {
-		fprintf_s(stderr, "Error %lu in WinHttpOpen.\n", GetLastError());
+		fwprintf_s(stderr, L"Error %lu in WinHttpOpen.\n", GetLastError());
 		goto premature_return;
 	}
 
@@ -81,7 +81,7 @@ hscr_t http_get(_In_ const wchar_t* restrict server_name, _In_ const wchar_t* re
 			0);
 	}
 	else {
-		fprintf_s(stderr, "Error %lu in WinHttpConnect.\n", GetLastError());
+		fwprintf_s(stderr, L"Error %lu in WinHttpConnect.\n", GetLastError());
 		WinHttpCloseHandle(session_handle);
 		goto premature_return_sh;
 	}
@@ -99,12 +99,12 @@ hscr_t http_get(_In_ const wchar_t* restrict server_name, _In_ const wchar_t* re
 			0);	// A pointer to a pointer-sized variable that contains an application-defined value that is passed, with the request handle, to any callback functions.
 	}
 	else {
-		fprintf_s(stderr, "Error %lu in the WinHttpOpenRequest.\n", GetLastError());
+		fwprintf_s(stderr, L"Error %lu in the WinHttpOpenRequest.\n", GetLastError());
 		goto premature_return_ch;
 	}
 
 	if (!http_send_reqest_status) {
-		fprintf_s(stderr, "Error %lu in the WinHttpSendRequest.\n", GetLastError());
+		fwprintf_s(stderr, L"Error %lu in the WinHttpSendRequest.\n", GetLastError());
 		goto premature_return_rh;
 	}
 
@@ -128,7 +128,7 @@ char* read_http_response(_In_ const hscr_t scr_handles, _Inout_ uint64_t* const 
 
 	// if the call to HttpGet() failed,
 	if (scr_handles.session_handle == NULL || scr_handles.connection_handle == NULL || scr_handles.request_handle == NULL) {
-		fprintf_s(stderr, "read_http_response failed. Possible errors in previous call to http_get.\n");
+		fputws(L"read_http_response failed. Possible errors in previous call to http_get.\n", stderr);
 		return NULL;
 	}
 
@@ -146,7 +146,7 @@ char* read_http_response(_In_ const hscr_t scr_handles, _Inout_ uint64_t* const 
 	char* buffer = (char*) malloc(RESP_BUFF_SIZE);	// now that's 1 MiB.
 	// if malloc() failed,
 	if (!buffer) {
-		fputs("malloc returned NULL", stderr);
+		fputws(L"malloc returned NULL", stderr);
 		return NULL;
 	}
 
@@ -155,7 +155,7 @@ char* read_http_response(_In_ const hscr_t scr_handles, _Inout_ uint64_t* const 
 	bool is_received = WinHttpReceiveResponse(request_handle, NULL);
 
 	if (!is_received) {
-		fprintf_s(stderr, "Error %lu in WinHttpReceiveResponse.\n", GetLastError());
+		fwprintf_s(stderr, L"Error %lu in WinHttpReceiveResponse.\n", GetLastError());
 		free(buffer);
 		return NULL;
 	}
@@ -169,7 +169,7 @@ char* read_http_response(_In_ const hscr_t scr_handles, _Inout_ uint64_t* const 
 		bytes_in_current_query = bytes_read_from_current_query = 0;
 
 		if (!WinHttpQueryDataAvailable(request_handle, &bytes_in_current_query)) {
-			fprintf_s(stderr, "Error %lu in WinHttpQueryDataAvailable.\n", GetLastError());
+			fwprintf_s(stderr, L"Error %lu in WinHttpQueryDataAvailable.\n", GetLastError());
 			break;
 		}
 
@@ -178,7 +178,7 @@ char* read_http_response(_In_ const hscr_t scr_handles, _Inout_ uint64_t* const 
 
 		if (!WinHttpReadData(request_handle, buffer + total_bytes_read_from_response,
 			bytes_in_current_query, &bytes_read_from_current_query)) {
-			fprintf_s(stderr, "Error %lu in WinHttpReadData.\n", GetLastError());
+			fwprintf_s(stderr, L"Error %lu in WinHttpReadData.\n", GetLastError());
 			break;
 		}
 
@@ -187,11 +187,11 @@ char* read_http_response(_In_ const hscr_t scr_handles, _Inout_ uint64_t* const 
 		total_bytes_read_from_response += bytes_read_from_current_query;
 
 #ifdef _DEBUG
-		printf_s("Read %lu bytes in this iteration.\n", bytes_in_current_query);
+		wprintf_s(L"Read %lu bytes in this iteration.\n", bytes_in_current_query);
 #endif // _DEBUG
 
 		if (total_bytes_read_from_response >= (RESP_BUFF_SIZE - 128U)) {
-			fprintf_s(stderr, "Warning: Truncation of response due to insufficient memory!\n");
+			fputws(L"Warning: Truncation of response due to insufficient memory!\n", stderr);
 			break;
 		}
 
@@ -205,7 +205,7 @@ char* read_http_response(_In_ const hscr_t scr_handles, _Inout_ uint64_t* const 
 	WinHttpCloseHandle(request_handle);
 
 #ifdef _DEBUG
-	printf_s("%llu bytes have been received in total.\n", total_bytes_read_from_response);
+	wprintf_s(L"%llu bytes have been received in total.\n", total_bytes_read_from_response);
 #endif // _DEBUG
 
 	(*response_size) = total_bytes_read_from_response;
@@ -216,7 +216,10 @@ char* read_http_response(_In_ const hscr_t scr_handles, _Inout_ uint64_t* const 
 // return the offset of the buffer where the stable releases start.
 range_t get_stable_releases_offset_range(_In_ const char* restrict html_body, _In_ const uint32_t size) {
 
-	uint64_t start_offset = 0, end_offset = 0, stable_releases_start = 0;
+	range_t delimiters = {.start = 0, .end = 0 };
+	if (!html_body) return delimiters ;
+
+	uint64_t start_offset = 0, end_offset = 0;
 
 	for (uint64_t i = 0; i < size; ++i) {
 
@@ -249,11 +252,12 @@ range_t get_stable_releases_offset_range(_In_ const char* restrict html_body, _I
 	}
 
 #ifdef _DEBUG
-	printf_s("Start offset is %llu and stop offset id %llu. Stable releases string is %llu bytes long.\n",
+	wprintf_s(L"Start offset is %llu and stop offset id %llu.\n"
+			  "Stable releases string is %llu bytes long.\n",
 		start_offset, end_offset, (end_offset - start_offset));
 #endif // _DEBUG
 
-	range_t delimiters = { .start = start_offset, .end = end_offset };
+	delimiters = { .start = start_offset, .end = end_offset };
 	return delimiters;
 }
 
@@ -277,8 +281,7 @@ parsedstructs_t deserialize_stable_releases(_In_ const char* restrict stable_rel
 
 	// If malloc failed,
 	if (!py_releases) {
-		fprintf_s(stderr, "Error %lu. malloc returned NULL.\n",
-			GetLastError());
+		fputws(L"Error: malloc returned NULL in deserialize_stable_releases.\n", stderr);
 		return parse_results;
 	}
 
@@ -356,9 +359,6 @@ parsedstructs_t deserialize_stable_releases(_In_ const char* restrict stable_rel
 			// version_string field.
 			memcpy_s((py_releases[last_deserialized_struct_offset]).version_string, 40U,
 					(stable_releases_chunk + version_start_offset), (version_end_offset - version_start_offset));
-#ifdef _DEBUG
-			puts(py_releases[last_deserialized_struct_offset].version_string);
-#endif // _DEBUG
 
 			// Copy the chars representing the release url to the deserialized struct's 
 			// amd64_download_url field.
@@ -366,7 +366,9 @@ parsedstructs_t deserialize_stable_releases(_In_ const char* restrict stable_rel
 				(stable_releases_chunk + url_start_offset), (url_end_offset - url_start_offset));
 
 #ifdef _DEBUG
-			puts(py_releases[last_deserialized_struct_offset].amd64_download_url);
+			// %S is necessary for formatting regular ASCII characters in unicode io procs.
+			wprintf_s(L"%S\n%S\n", py_releases[last_deserialized_struct_offset].version_string,
+			py_releases[last_deserialized_struct_offset].amd64_download_url);
 #endif // _DEBUG
 
 			// Increment the counter for last deserialized struct by one.
@@ -396,7 +398,6 @@ parsedstructs_t deserialize_stable_releases(_In_ const char* restrict stable_rel
 void print_python_releases(_In_ const parsedstructs_t parse_results, _In_ const char* restrict installed_python_version) {
 
 	char python_version[BUFF_SIZE] = { 0 };
-	uint32_t start_offset = 0;
 	for (uint64_t i = 7; i < BUFF_SIZE; ++i) {
 		// ASCII '0' to '9' is 48 to 57 and '.' is 46 ('/' is 47)
 		// installed_python_version will be in the form of "Python 3.10.5"
@@ -410,29 +411,29 @@ void print_python_releases(_In_ const parsedstructs_t parse_results, _In_ const 
 
 
 #ifdef _DEBUG
-	printf_s("Installed python's version is %s", python_version);
+	wprintf_s(L"Installed python's version is %S\n", python_version);
 #endif // _DEBUG
 
-	puts("-----------------------------------------------------------------------------------");
-	printf_s("|\x1b[36m%9s\x1b[m  |\x1b[36m%40s\x1b[m                             |\n",
-		"Version", "Download URL");
-	puts("-----------------------------------------------------------------------------------");
+	_putws(L"-----------------------------------------------------------------------------------");
+	wprintf_s(L"|\x1b[36m%9s\x1b[m  |\x1b[36m%40s\x1b[m                             |\n",
+		L"Version", L"Download URL");
+	_putws(L"-----------------------------------------------------------------------------------");
 	for (uint64_t i = 0; i < parse_results.parsed_struct_count; ++i) {
 
 #ifdef _DEBUG
-		printf_s("strcmp: %d\n", strcmp(python_version, parse_results.py_start[i].version_string));
-		printf_s("strlen: %zd, %zd\n", strlen(python_version), strlen(parse_results.py_start[i].version_string));
+		wprintf_s(L"strcmp: %d\n", strcmp(python_version, parse_results.py_start[i].version_string));
+		wprintf_s(L"strlen: %zd, %zd\n", strlen(python_version), strlen(parse_results.py_start[i].version_string));
 #endif // _DEBUG
 
 		if (!strcmp(python_version, parse_results.py_start[i].version_string)) {
-			printf_s("|\x1b[35;47;1m   %-7s |  %-66s \x1b[m|\n", parse_results.py_start[i].version_string,
+			wprintf_s(L"|\x1b[35;47;1m   %-7S |  %-66S \x1b[m|\n", parse_results.py_start[i].version_string,
 				parse_results.py_start[i].amd64_download_url);
 		}
 		else {
-			printf_s("|\x1b[91m   %-7s \x1b[m| \x1b[32m %-66s \x1b[m|\n", parse_results.py_start[i].version_string,
+			wprintf_s(L"|\x1b[91m   %-7S \x1b[m| \x1b[32m %-66S \x1b[m|\n", parse_results.py_start[i].version_string,
 				parse_results.py_start[i].amd64_download_url);
 		}
 	}
-	puts("-----------------------------------------------------------------------------------");
+	_putws(L"-----------------------------------------------------------------------------------");
 	return;
 }

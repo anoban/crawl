@@ -97,7 +97,7 @@ bool launch_python(void) {
 
     // If invocation failed,
     if (!proc_creation_status) {
-        fprintf_s(stderr, "Error %lu in CreateProcessW.\n", GetLastError());
+        fwprintf_s(stderr, L"Error %lu in CreateProcessW.\n", GetLastError());
         return false;
     }
 
@@ -105,13 +105,13 @@ bool launch_python(void) {
      wait_status = WaitForSingleObject(child_proc_info.hProcess, 100U);
      switch (wait_status) {
      case (WAIT_ABANDONED):
-         fprintf_s(stderr, "Mutex object was not released by the child thread before the caller thread terminated.\n");
+         fputws(L"Mutex object was not released by the child thread before the caller thread terminated.\n", stderr);
          break;
      case(WAIT_TIMEOUT):
-         fprintf_s(stderr, "The time-out interval elapsed, and the object's state is nonsignaled.\n");
+         fputws(L"The time-out interval elapsed, and the object's state is nonsignaled.\n", stderr);
          break;
      case(WAIT_FAILED):
-         fprintf_s(stderr, "Error %lu: Wait failed.\n", GetLastError());
+         fwprintf_s(stderr, L"Error %lu: Wait failed.\n", GetLastError());
          break;
          // WAIT_OBJECT_0 0x00000000L -> The state of the specified object is signaled.
      default:
@@ -140,7 +140,7 @@ bool read_pythons_stdout(_Inout_ const char* restrict write_buffer, _In_ const u
     CloseHandle(child_process_stdout_handle);
 
 #ifdef _DEBUG
-    printf_s("Python's stdout: %s (%llu bytes).\n", write_buffer, nbytes_read);
+    wprintf_s(L"Python's stdout: %S (%llu bytes).\n", write_buffer, nbytes_read);
 #endif
 
     return proc_creation_status;
@@ -155,13 +155,13 @@ bool get_installed_python_version(_Inout_ const char* restrict version_buffer, _
 
     // Creating Child process ------> Parent process pipe.
     if (!CreatePipe(&this_process_stdin_handle, &child_process_stdout_handle, &pipe_security_attrs, 0)) {
-        fprintf_s(stderr, "Error %lu in CreatePipe.\n", GetLastError());
+        fwprintf_s(stderr, L"Error %lu in CreatePipe.\n", GetLastError());
         return false;
     }
 
     // Make the parent process's handles uninheritable.
     if (!SetHandleInformation(this_process_stdin_handle, HANDLE_FLAG_INHERIT, 0U)) {
-        fprintf_s(stderr, "Error %lu in SetHandleInformation.\n", GetLastError());
+        fwprintf_s(stderr, L"Error %lu in SetHandleInformation.\n", GetLastError());
         return false;
     }
 
@@ -170,12 +170,12 @@ bool get_installed_python_version(_Inout_ const char* restrict version_buffer, _
     if (launch_status) {
         read_status = read_pythons_stdout(version_buffer, buffsize);
         if (!read_status) {
-            fprintf_s(stderr, "Error %lu in read_pythons_stdout.\n", GetLastError());
+            fwprintf_s(stderr, L"Error %lu in read_pythons_stdout.\n", GetLastError());
             return false;
         }
     }
     else {
-        fprintf_s(stderr, "Error %lu in launch_python.\n", GetLastError());
+        fwprintf_s(stderr, L"Error %lu in launch_python.\n", GetLastError());
         return false;
     }
 
