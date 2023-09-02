@@ -61,6 +61,6 @@ void print_python_releases(_In_ const parsedstructs_t parse_results, _In_ const 
 
 bool launch_python(void);
 
-bool read_pythons_stdout(_Inout_ const char* restrict write_buffer, _In_ const uint64_t buffsize);
+bool read_pythons_stdout(_Inout_ char* const restrict write_buffer, _In_ const uint64_t buffsize);
 
-bool get_installed_python_version(_Inout_ const char* restrict version_buffer, _In_ const uint64_t buffsize);
+bool get_installed_python_version(_Inout_ char* const restrict version_buffer, _In_ const uint64_t buffsize);

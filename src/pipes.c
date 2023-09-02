@@ -75,7 +75,14 @@ bool launch_python(void) {
     // Therefore, this parameter cannot be a pointer to read-only memory (such as a const variable or
     // a literal string). If this parameter is a constant string, the function may cause an access
     // violation.
-    wchar_t invoke_command[40] = L"python.exe --version";
+
+#ifndef _DEBUG
+    wchar_t invoke_command[100] = L"python.exe --version";
+#else defined _DEBUG
+    // py-releases.exe is invoked from the solution's root directory,
+    // so this path needs to be relative to the solution's root directory.
+    wchar_t invoke_command[100] = L"./python/x64/Debug/python.exe --version";
+#endif // !_DEBUG
 
     // The lpApplicationName parameter can be NULL. In that case, the module name must be the first white
     // space–delimited token in the lpCommandLine string. If you are using a long file name that contains
@@ -126,28 +133,25 @@ bool launch_python(void) {
 }
 
 
-bool read_pythons_stdout(_Inout_ const char* restrict write_buffer, _In_ const uint64_t buffsize) {
+bool read_pythons_stdout(_Inout_ char* const restrict write_buffer, _In_ const uint64_t buffsize) {
 
     // Reads python_t.exe's stdout and writes it to the buffer.
     // If size(stdout) > size(buffer), write will happen until there's no space in the buffer.
 
     uint64_t nbytes_read = 0;
-    bool proc_creation_status = ReadFile(this_process_stdin_handle, write_buffer,
+    bool pipe_read_status = ReadFile(this_process_stdin_handle, write_buffer,
         buffsize, &nbytes_read, NULL);
 
+    if (!pipe_read_status) fwprintf_s(stderr, L"Error %lu in ReadFile.\n", GetLastError());
 
     // Close the child's ends of the pipe.
     CloseHandle(child_process_stdout_handle);
 
-#ifdef _DEBUG
-    wprintf_s(L"Python's stdout: %S (%llu bytes).\n", write_buffer, nbytes_read);
-#endif
-
-    return proc_creation_status;
+    return pipe_read_status;
 }
 
 
-bool get_installed_python_version(_Inout_ const char* restrict version_buffer, _In_ const uint64_t buffsize) {
+bool get_installed_python_version(_Inout_ char* const restrict version_buffer, _In_ const uint64_t buffsize) {
 
     // A struct to specify the security attributes of the pipes.
     // .bInheritHandle = true makes pipe handles inheritable.

@@ -1,9 +1,11 @@
+#ifdef _DEBUG
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
-// A dummy python_t.exe to test py-releases.exe
+// A dummy python.exe to test py-releases.exe
 
 int main(int argc, char* argv[]) {
 
@@ -13,8 +15,9 @@ int main(int argc, char* argv[]) {
     minor = (rand() % 5) + 5;
     major = (rand() % 9) + 1;
 
-    if (!strcmp(argv[1], "--version")) {
-        printf_s("python_t 3.%d.%d\n", minor, major);
-    }
+    if (!strcmp(argv[1], "--version")) printf_s("Python 3.%d.%d\n", minor, major);
+
     return 0;
 }
+
+#endif // _DEBUG

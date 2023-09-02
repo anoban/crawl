@@ -82,7 +82,6 @@ hscr_t http_get(_In_ const wchar_t* restrict server_name, _In_ const wchar_t* re
 	}
 	else {
 		fwprintf_s(stderr, L"Error %lu in WinHttpConnect.\n", GetLastError());
-		WinHttpCloseHandle(session_handle);
 		goto premature_return_sh;
 	}
 
@@ -186,10 +185,6 @@ char* read_http_response(_In_ const hscr_t scr_handles, _Inout_ uint64_t* const 
 		total_bytes_in_response += bytes_in_current_query;
 		total_bytes_read_from_response += bytes_read_from_current_query;
 
-#ifdef _DEBUG
-		wprintf_s(L"Read %lu bytes in this iteration.\n", bytes_in_current_query);
-#endif // _DEBUG
-
 		if (total_bytes_read_from_response >= (RESP_BUFF_SIZE - 128U)) {
 			fputws(L"Warning: Truncation of response due to insufficient memory!\n", stderr);
 			break;
@@ -216,8 +211,8 @@ char* read_http_response(_In_ const hscr_t scr_handles, _Inout_ uint64_t* const 
 // return the offset of the buffer where the stable releases start.
 range_t get_stable_releases_offset_range(_In_ const char* restrict html_body, _In_ const uint32_t size) {
 
-	range_t delimiters = {.start = 0, .end = 0 };
-	if (!html_body) return delimiters ;
+	range_t delimiters = { .start = 0, .end = 0 };
+	if (!html_body) return delimiters;
 
 	uint64_t start_offset = 0, end_offset = 0;
 
@@ -251,13 +246,9 @@ range_t get_stable_releases_offset_range(_In_ const char* restrict html_body, _I
 		}
 	}
 
-#ifdef _DEBUG
-	wprintf_s(L"Start offset is %llu and stop offset id %llu.\n"
-			  "Stable releases string is %llu bytes long.\n",
-		start_offset, end_offset, (end_offset - start_offset));
-#endif // _DEBUG
+	delimiters.start = start_offset;
+	delimiters.end = end_offset;
 
-	delimiters = { .start = start_offset, .end = end_offset };
 	return delimiters;
 }
 
@@ -275,6 +266,9 @@ parsedstructs_t deserialize_stable_releases(_In_ const char* restrict stable_rel
 
 	parsedstructs_t parse_results =  { .py_start = NULL, .struct_count = N_PYTHON_RELEASES,
 									.parsed_struct_count = 0};
+
+	// if the chunk start is 0 or size is not greater than 0,
+	if ((!stable_releases_chunk[0]) || (size <= 0)) return parse_results;
 
 	// Allocate memory for N_PYTHON_RELEASES python_t structs.
 	python_t* py_releases = (python_t*) malloc(sizeof(python_t) * N_PYTHON_RELEASES);
@@ -365,12 +359,6 @@ parsedstructs_t deserialize_stable_releases(_In_ const char* restrict stable_rel
 			memcpy_s((py_releases[last_deserialized_struct_offset]).amd64_download_url, 150U,
 				(stable_releases_chunk + url_start_offset), (url_end_offset - url_start_offset));
 
-#ifdef _DEBUG
-			// %S is necessary for formatting regular ASCII characters in unicode io procs.
-			wprintf_s(L"%S\n%S\n", py_releases[last_deserialized_struct_offset].version_string,
-			py_releases[last_deserialized_struct_offset].amd64_download_url);
-#endif // _DEBUG
-
 			// Increment the counter for last deserialized struct by one.
 			last_deserialized_struct_offset++;
 
@@ -397,43 +385,52 @@ parsedstructs_t deserialize_stable_releases(_In_ const char* restrict stable_rel
 
 void print_python_releases(_In_ const parsedstructs_t parse_results, _In_ const char* restrict installed_python_version) {
 
-	char python_version[BUFF_SIZE] = { 0 };
-	for (uint64_t i = 7; i < BUFF_SIZE; ++i) {
-		// ASCII '0' to '9' is 48 to 57 and '.' is 46 ('/' is 47)
-		// installed_python_version will be in the form of "Python 3.10.5"
-		// Numeric version starts after offset 7. (@ 8)
-		if ((installed_python_version[i] >= 46) && (installed_python_version[i] <= 57)) {
-			python_version[i - 7] = installed_python_version[i];
+	// if somehow the system cannot find the installed python version, and a empty buffer is returned,
+	bool is_empty = (*installed_python_version) == 0 ? true : false;
+
+	// if the buffer is empty don't bother with these...
+	if (!is_empty) {
+		char python_version[BUFF_SIZE] = { 0 };
+
+		for (uint64_t i = 7; i < BUFF_SIZE; ++i) {
+			// ASCII '0' to '9' is 48 to 57 and '.' is 46 ('/' is 47)
+			// installed_python_version will be in the form of "Python 3.10.5"
+			// Numeric version starts after offset 7. (@ 8)
+			if ((installed_python_version[i] >= 46) && (installed_python_version[i] <= 57)) {
+				python_version[i - 7] = installed_python_version[i];
+			}
+			// if any other characters encountered,
+			else break;
 		}
-		// if any other characters encountered,
-		else break;
+
+		_putws(L"-----------------------------------------------------------------------------------");
+		wprintf_s(L"|\x1b[36m%9s\x1b[m  |\x1b[36m%40s\x1b[m                             |\n",
+				  L"Version", L"Download URL");
+		_putws(L"-----------------------------------------------------------------------------------");
+		for (uint64_t i = 0; i < parse_results.parsed_struct_count; ++i) {
+			if (!strcmp(python_version, parse_results.py_start[i].version_string)) {
+				wprintf_s(L"|\x1b[35;47;1m   %-7S |  %-66S \x1b[m|\n", parse_results.py_start[i].version_string,
+						  parse_results.py_start[i].amd64_download_url);
+			}
+			else {
+				wprintf_s(L"|\x1b[91m   %-7S \x1b[m| \x1b[32m %-66S \x1b[m|\n", parse_results.py_start[i].version_string,
+						  parse_results.py_start[i].amd64_download_url);
+			}
+		}
+		_putws(L"-----------------------------------------------------------------------------------");
+
+	}	// !is_empty
+	else {
+		_putws(L"-----------------------------------------------------------------------------------");
+		wprintf_s(L"|\x1b[36m%9s\x1b[m  |\x1b[36m%40s\x1b[m                             |\n",
+				  L"Version", L"Download URL");
+		_putws(L"-----------------------------------------------------------------------------------");
+		for (uint64_t i = 0; i < parse_results.parsed_struct_count; ++i) {
+		wprintf_s(L"|\x1b[91m   %-7S \x1b[m| \x1b[32m %-66S \x1b[m|\n", parse_results.py_start[i].version_string,
+				  parse_results.py_start[i].amd64_download_url);
+		}
+		_putws(L"-----------------------------------------------------------------------------------");
 	}
 
-
-#ifdef _DEBUG
-	wprintf_s(L"Installed python's version is %S\n", python_version);
-#endif // _DEBUG
-
-	_putws(L"-----------------------------------------------------------------------------------");
-	wprintf_s(L"|\x1b[36m%9s\x1b[m  |\x1b[36m%40s\x1b[m                             |\n",
-		L"Version", L"Download URL");
-	_putws(L"-----------------------------------------------------------------------------------");
-	for (uint64_t i = 0; i < parse_results.parsed_struct_count; ++i) {
-
-#ifdef _DEBUG
-		wprintf_s(L"strcmp: %d\n", strcmp(python_version, parse_results.py_start[i].version_string));
-		wprintf_s(L"strlen: %zd, %zd\n", strlen(python_version), strlen(parse_results.py_start[i].version_string));
-#endif // _DEBUG
-
-		if (!strcmp(python_version, parse_results.py_start[i].version_string)) {
-			wprintf_s(L"|\x1b[35;47;1m   %-7S |  %-66S \x1b[m|\n", parse_results.py_start[i].version_string,
-				parse_results.py_start[i].amd64_download_url);
-		}
-		else {
-			wprintf_s(L"|\x1b[91m   %-7S \x1b[m| \x1b[32m %-66S \x1b[m|\n", parse_results.py_start[i].version_string,
-				parse_results.py_start[i].amd64_download_url);
-		}
-	}
-	_putws(L"-----------------------------------------------------------------------------------");
 	return;
 }
