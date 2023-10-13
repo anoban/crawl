@@ -15,7 +15,7 @@ int main(int argc, char* argv[]) {
     minor = (rand() % 5) + 5;
     major = (rand() % 9) + 1;
 
-    if (!strcmp(argv[1], "--version")) printf_s("Python 3.%d.%d\n", minor, major);
+    if (!strcmp(argv[1], "--version")) printf_s("Python 3.%d.%d\n", major, minor);
 
     return 0;
 }
