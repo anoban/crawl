@@ -1,14 +1,13 @@
 #ifdef _DEBUG
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
+    #include <stdio.h>
+    #include <stdlib.h>
+    #include <string.h>
+    #include <time.h>
 
 // A dummy python.exe to test py-releases.exe
 
 int main(int argc, char* argv[]) {
-
     srand(time(NULL));
     int minor = 0, major = 0;
 
