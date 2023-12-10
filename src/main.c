@@ -15,13 +15,13 @@ int wmain(void) {
     // 	_putws(cwd);
     // #endif // _DEBUG
 
-    hscr_t               scr_struct    = http_get(SERVER, ACCESS_POINT);
+    const hscr_t         scr_struct    = http_get(SERVER, ACCESS_POINT);
 
     uint64_t             resp_size     = 0;
 
     // read_http_response will handle if scr_handles are NULLs.
     // no need for external error handling here.
-    char*                html_content  = read_http_response(scr_struct, &resp_size);
+    char* const          html_content  = read_http_response(scr_struct, &resp_size);
 
     // get_stable_releases_offset_range will handle NULL returns from read_http_response internally,
     // so again no need for main to handle errors explicitly.
