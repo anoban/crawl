@@ -4,6 +4,6 @@
 
 - Installed Python version will be highlighted.
 
-### ___Sample output: Scraping www.python.org on 10/12/2023___
+##### ___Sample output: Scraping www.python.org on 10-12-2023___
 -------
 <img src="./output.jpg">
