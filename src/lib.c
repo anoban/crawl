@@ -1,41 +1,40 @@
 #include <pyreleases.h>
 
-// May be unnecessary, since Windows consoles seem to be sensitive to VTEs without manually customizing the
+// may be unnecessary, since Windows consoles seem to be sensitive to VTEs without manually customizing the
 // Win32 console mode API. At least in these days. MS examples often include this step though! :(
-bool activate_vtes(void) {
-    HANDLE console_handle = GetStdHandle(STD_OUTPUT_HANDLE);
-    if (console_handle == INVALID_HANDLE_VALUE) {
+
+bool ActivateVirtualTerminalEscapes(void) {
+    HANDLE hConsole     = GetStdHandle(STD_OUTPUT_HANDLE);
+    DWORD  console_mode = 0;
+
+    if (hConsole == INVALID_HANDLE_VALUE) {
         fwprintf_s(stderr, L"Error %lu in GetStdHandle.\n", GetLastError());
         return false;
     }
-    uint32_t console_mode = 0;
-    if (!GetConsoleMode(console_handle, &console_mode)) {
+
+    if (!GetConsoleMode(hConsole, &console_mode)) {
         fwprintf_s(stderr, L"Error %lu in GetConsoleMode.\n", GetLastError());
         return false;
     }
+
     console_mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-    if (!SetConsoleMode(console_handle, console_mode)) {
+    if (!SetConsoleMode(hConsole, console_mode)) {
         fwprintf_s(stderr, L"Error %lu in SetConsoleMode.\n", GetLastError());
         return false;
     }
+
     return true;
 }
 
-hscr_t http_get(_In_ const wchar_t* restrict server_name, _In_ const wchar_t* restrict access_point) {
-    /*
-     * A convenient wrapper around WinHttp functions.
-     * Allows to send a GET request and receive the response in one function call
-     * without having to deal with the cascade of WinHttp callbacks.
-     */
+hint3_t HttpGet(_In_ const wchar_t* const restrict server, _In_ const wchar_t* restrict accesspoint) {
+    // a convenient wrapper around WinHttp functions.
+    // allows to send a GET request and receive the response in one function call without having to deal with the cascade of WinHttp
+    // callbacks.
 
-    HINTERNET session_handle = NULL, connection_handle = NULL, request_handle = NULL;
-    bool      http_send_reqest_status = false;
-    hscr_t    scr_handles             = { .session_handle = NULL, .connection_handle = NULL, .request_handle = NULL };
-
-    // Returns a valid session handle if successful, or NULL otherwise.
+    // WinHttpOpen returns a valid session handle if successful, or NULL otherwise.
     // first of the WinHTTP functions called by an application.
-    // It initializes internal WinHTTP data structures and prepares for future calls from the application.
-    session_handle                    = WinHttpOpen(
+    // initializes internal WinHTTP data structures and prepares for future calls from the application.
+    const HINTERNET hSession = WinHttpOpen(
         // impersonating Firefox to avoid request denials.
         L"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/116.0",
         WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY,
@@ -44,86 +43,80 @@ hscr_t http_get(_In_ const wchar_t* restrict server_name, _In_ const wchar_t* re
         0
     );
 
-    if (session_handle) {
-        // Specifies the initial target server of an HTTP request and returns an HINTERNET connection handle
-        // to an HTTP session for that initial target.
-        // Returns a valid connection handle to the HTTP session if the connection is successful, or NULL otherwise.
-        connection_handle = WinHttpConnect(
-            session_handle,
-            server_name,
-            INTERNET_DEFAULT_HTTP_PORT, // Uses port 80 for HTTP and port 443 for HTTPS.
-            0
-        );
-
-    } else {
+    if (!hSession) {
         fwprintf_s(stderr, L"Error %lu in WinHttpOpen.\n", GetLastError());
-        goto premature_return;
+        goto PREMATURE_RETURN;
     }
 
-    if (connection_handle) {
-        // Creates an HTTP request handle.
-        // An HTTP request handle holds a request to send to an HTTP server and contains all
-        // RFC822/MIME/HTTP headers to be sent as part of the request.
-        request_handle = WinHttpOpenRequest(
-            connection_handle,
-            L"GET",
-            access_point,
-            NULL, // Pointer to a string that contains the HTTP version. If this parameter is NULL, the function uses HTTP/1.1
-            WINHTTP_NO_REFERER,
-            WINHTTP_DEFAULT_ACCEPT_TYPES, // Pointer to a null-terminated array of string pointers that
-            // specifies media types accepted by the client.
-            // WINHTTP_DEFAULT_ACCEPT_TYPES, no types are accepted by the client.
-            // Typically, servers handle a lack of accepted types as indication that the client accepts
-            // only documents of type "text/*"; that is, only text documents & no pictures or other binary files
-            0
-        );
-    } else {
+    // WinHttpConnect specifies the initial target server of an HTTP request and returns an HINTERNET connection handle
+    // to an HTTP session for that initial target.
+    // returns a valid connection handle to the HTTP session if the connection is successful, or NULL otherwise.
+    const HINTERNET hConnection = WinHttpConnect(
+        hSession,
+        server,
+        INTERNET_DEFAULT_HTTP_PORT, // uses port 80 for HTTP and port 443 for HTTPS.
+        0
+    );
+
+    if (!hConnection) {
         fwprintf_s(stderr, L"Error %lu in WinHttpConnect.\n", GetLastError());
-        goto premature_return_sh;
+        goto CLOSE_SESSION_HANDLE;
     }
 
-    if (request_handle) {
-        // Sends the specified request to the HTTP server.
-        // Returns true if successful, or false otherwise.
-        http_send_reqest_status = WinHttpSendRequest(
-            request_handle,
-            WINHTTP_NO_ADDITIONAL_HEADERS, // A pointer to a string that contains the additional headers to append to the request.
-            0,                       // An unsigned long integer value that contains the length, in characters, of the additional headers.
-            WINHTTP_NO_REQUEST_DATA, // A pointer to a buffer that contains any optional data to send immediately after the request headers
-            0,                       // An unsigned long integer value that contains the length, in bytes, of the optional data.
-            0,                       // An unsigned long integer value that contains the length, in bytes, of the total data sent.
-            0
-        ); // A pointer to a pointer-sized variable that contains an application-defined value that is passed, with the request handle, to
-           // any callback functions.
-    } else {
+    // WinHttpOpenRequest creates an HTTP request handle.
+    // an HTTP request handle holds a request to send to an HTTP server and contains all RFC822/MIME/HTTP headers to be sent as part of the
+    // request.
+    const HINTERNET hRequest = WinHttpOpenRequest(
+        hConnection,
+        L"GET",
+        accesspoint,
+        NULL, // pointer to a string that contains the HTTP version. If this parameter is NULL, the function uses HTTP/1.1
+        WINHTTP_NO_REFERER,
+        WINHTTP_DEFAULT_ACCEPT_TYPES, // pointer to a null-terminated array of string pointers that
+        // specifies media types accepted by the client.
+        // WINHTTP_DEFAULT_ACCEPT_TYPES, no types are accepted by the client.
+        // typically, servers handle a lack of accepted types as indication that the client accepts
+        // only documents of type "text/*"; that is, only text documents & no pictures or other binary files
+        0
+    );
+
+    if (!hRequest) {
         fwprintf_s(stderr, L"Error %lu in the WinHttpOpenRequest.\n", GetLastError());
-        goto premature_return_ch;
+        goto CLOSE_CONNECTION_HANDLE;
     }
 
-    if (!http_send_reqest_status) {
+    // WinHttpSendRequest sends the specified request to the HTTP server and returns true if successful, or false otherwise.
+    const bool status = WinHttpSendRequest(
+        hRequest,
+        WINHTTP_NO_ADDITIONAL_HEADERS, // pointer to a string that contains the additional headers to append to the request.
+        0,                             // an unsigned long integer value that contains the length, in characters, of the additional headers.
+        WINHTTP_NO_REQUEST_DATA,       // pointer to a buffer that contains any optional data to send immediately after the request headers
+        0,                             // an unsigned long integer value that contains the length, in bytes, of the optional data.
+        0,                             // an unsigned long integer value that contains the length, in bytes, of the total data sent.
+        0
+    ); // a pointer to a pointer-sized variable that contains an application-defined value that is passed, with the request handle, to
+       // any callback functions.
+
+    if (!status) {
         fwprintf_s(stderr, L"Error %lu in the WinHttpSendRequest.\n", GetLastError());
-        goto premature_return_rh;
+        goto CLOSE_REQUEST_HANDLE;
     }
 
     // these 3 handles need to be closed by the caller.
-    scr_handles.session_handle    = session_handle;
-    scr_handles.connection_handle = connection_handle;
-    scr_handles.request_handle    = request_handle;
-
-    return scr_handles;
+    return (hint3_t) { .session = hSession, .connection = hConnection, .request = hRequest };
 
 // cleanup
-premature_return_rh:
-    WinHttpCloseHandle(request_handle);
-premature_return_ch:
-    WinHttpCloseHandle(connection_handle);
-premature_return_sh:
-    WinHttpCloseHandle(session_handle);
-premature_return:
-    return scr_handles;
+CLOSE_REQUEST_HANDLE:
+    WinHttpCloseHandle(hRequest);
+CLOSE_CONNECTION_HANDLE:
+    WinHttpCloseHandle(hConnection);
+CLOSE_SESSION_HANDLE:
+    WinHttpCloseHandle(hSession);
+PREMATURE_RETURN:
+    return (hint3_t) { .session = NULL, .connection = NULL, .request = NULL };
 }
 
-char* read_http_response(_In_ const hscr_t scr_handles, _Inout_ uint64_t* const restrict response_size) {
+char* ReadHttpResponse(_In_ const hint3_t scr_handles, _Inout_ uint64_t* const restrict response_size) {
     // if the call to HttpGet() failed,
     if (scr_handles.session_handle == NULL || scr_handles.connection_handle == NULL || scr_handles.request_handle == NULL) {
         fputws(L"read_http_response failed. Possible errors in previous call to http_get.\n", stderr);
@@ -140,14 +133,14 @@ char* read_http_response(_In_ const hscr_t scr_handles, _Inout_ uint64_t* const 
     // last write offset, so the next write operation can start from there such that we can prevent
     // overwriting previously written memory.
 
-    char* buffer             = (char*) malloc(RESP_BUFF_SIZE); // now that's 1 MiB.
+    char* buffer             = (char*) malloc(HTTP_RESPONSE_SIZE); // now that's 1 MiB.
     // if malloc() failed,
     if (!buffer) {
         fputws(L"malloc returned NULL", stderr);
         return NULL;
     }
 
-    memset(buffer, 0U, RESP_BUFF_SIZE); // zero out the buffer.
+    memset(buffer, 0U, HTTP_RESPONSE_SIZE); // zero out the buffer.
 
     bool is_received = WinHttpReceiveResponse(request_handle, NULL);
 
@@ -184,7 +177,7 @@ char* read_http_response(_In_ const hscr_t scr_handles, _Inout_ uint64_t* const 
         total_bytes_in_response        += bytes_in_current_query;
         total_bytes_read_from_response += bytes_read_from_current_query;
 
-        if (total_bytes_read_from_response >= (RESP_BUFF_SIZE - 128U)) {
+        if (total_bytes_read_from_response >= (HTTP_RESPONSE_SIZE - 128U)) {
             fputws(L"Warning: Truncation of response due to insufficient memory!\n", stderr);
             break;
         }
@@ -243,7 +236,7 @@ range_t get_stable_releases_offset_range(_In_ const char* restrict html_body, _I
     return delimiters;
 }
 
-parsedstructs_t deserialize_stable_releases(_In_ const char* restrict stable_releases_chunk, _In_ const uint64_t size) {
+results_t deserialize_stable_releases(_In_ const char* restrict stable_releases_chunk, _In_ const uint64_t size) {
     // Caller is obliged to free the memory in return.py_start.
 
     // A struct to be returned by this function
@@ -251,7 +244,7 @@ parsedstructs_t deserialize_stable_releases(_In_ const char* restrict stable_rel
     // Number of structs in the allocated memory -> struct_count
     // Number of deserialized structs -> parsed_struct_count
 
-    parsedstructs_t parse_results = { .py_start = NULL, .struct_count = N_PYTHON_RELEASES, .parsed_struct_count = 0 };
+    results_t parse_results = { .py_start = NULL, .struct_count = N_PYTHON_RELEASES, .parsed_struct_count = 0 };
 
     // if the chunk start is 0 or size is not greater than 0,
     if ((!stable_releases_chunk[0]) || (size <= 0)) return parse_results;
@@ -374,7 +367,7 @@ parsedstructs_t deserialize_stable_releases(_In_ const char* restrict stable_rel
     return parse_results;
 }
 
-void print_python_releases(_In_ const parsedstructs_t parse_results, _In_ const char* restrict installed_python_version) {
+void PrintReleases(_In_ const results_t parse_results, _In_ const char* restrict installed_python_version) {
     // if somehow the system cannot find the installed python version, and a empty buffer is returned,
     bool is_empty = (*installed_python_version) == 0 ? true : false;
 

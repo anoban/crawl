@@ -1,70 +1,61 @@
 #pragma once
 
-#ifndef __PYRELEASE__
-    #define __PYRELEASE__
+#define WIN32_LEAN_AND_MEAN
+#define WIN32_EXTRA_MEAN
+#define BUFF_SIZE             100LLU
+#define HTTP_RESPONSE_SIZE    1048576LLU // 1 MiBs
+#define N_PYTHON_RELEASES     100LLU
+#define DOWNLOAD_URL_LENGTH   150LLU
+#define VERSION_STRING_LENGTH 40LLU
 
-    #include <stdbool.h>
-    #include <stdint.h>
-    #include <stdio.h>
-    #include <stdlib.h>
-    #include <string.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <Windows.h>
+#include <winhttp.h>
 
-    #ifdef _WIN32
-        #define WIN32_LEAN_AND_MEAN
-        #define WIN32_EXTRA_MEAN
-        #include <Windows.h>
-        #include <Winhttp.h>
-    #endif                          // _WIN32
-
-    #define BUFF_SIZE 100U
-
-    #pragma comment(lib, "Winhttp")
-    #pragma warning(disable : 4710)
-    #pragma warning(disable : 4820) // struct padding
+#pragma comment(lib, "Winhttp.lib")
+#pragma warning(disable : 4710)
+#pragma warning(disable : 4820)                 // struct padding
 
 typedef struct {
-        char version_string[40];
-        char amd64_download_url[150];
+        char version[VERSION_STRING_LENGTH];    // version information
+        char download_url[DOWNLOAD_URL_LENGTH]; // download URL for amd64 releases
 } python_t;
 
 typedef struct {
-        HINTERNET session_handle;
-        HINTERNET connection_handle;
-        HINTERNET request_handle;
-} hscr_t;
+        HINTERNET session;                      // session handle
+        HINTERNET connection;                   // connection handle
+        HINTERNET request;                      // request handle
+} hint3_t;
 
 typedef struct {
-        python_t* py_start;
-        uint64_t  struct_count;
-        uint64_t  parsed_struct_count;
-} parsedstructs_t;
+        python_t* begin;                        // pointer to the head of a heap allocated array of python_ts.s
+        uint64_t  capacity;                     // number of python_ts the heap allocated array can hold
+        uint64_t  count;                        // number of parsed python_t structs in the array
+} results_t;
 
 typedef struct {
-        uint64_t start;
+        uint64_t begin;
         uint64_t end;
 } range_t;
 
-    #define RESP_BUFF_SIZE    1048576U // 1 MiBs
-    #define N_PYTHON_RELEASES 100U
+bool      ActivateVirtualTerminalEscapes(void);
 
-// Prototypes.
+hint3_t   HttpGet(_In_ const wchar_t* restrict server_name, _In_ const wchar_t* restrict access_point);
 
-bool            activate_vtes(void);
+char*     ReadHttpResponse(_In_ const hint3_t scr_handles, _Inout_ uint64_t* const restrict response_size);
 
-hscr_t          http_get(_In_ const wchar_t* restrict server_name, _In_ const wchar_t* restrict access_point);
+range_t   get_stable_releases_offset_range(_In_ const char* restrict html_body, _In_ const uint32_t size);
 
-char*           read_http_response(_In_ const hscr_t scr_handles, _Inout_ uint64_t* const restrict response_size);
+results_t deserialize_stable_releases(_In_ const char* restrict stable_releases_chunk, _In_ const uint64_t size);
 
-range_t         get_stable_releases_offset_range(_In_ const char* restrict html_body, _In_ const uint32_t size);
+void      PrintReleases(_In_ const results_t parse_results, _In_ const char* restrict installed_python_version);
 
-parsedstructs_t deserialize_stable_releases(_In_ const char* restrict stable_releases_chunk, _In_ const uint64_t size);
+bool      LaunchPythonExe(void);
 
-void            print_python_releases(_In_ const parsedstructs_t parse_results, _In_ const char* restrict installed_python_version);
+bool      ReadStdoutPythonExe(_Inout_ char* const restrict write_buffer, _In_ const uint64_t buffsize);
 
-bool            launch_python(void);
-
-bool            read_pythons_stdout(_Inout_ char* const restrict write_buffer, _In_ const uint64_t buffsize);
-
-bool            get_installed_python_version(_Inout_ char* const restrict version_buffer, _In_ const uint64_t buffsize);
-
-#endif __PYRELEASE__ // !__PYRELEASE__
+bool      GetSystemPythonExeVersion(_Inout_ char* const restrict version_buffer, _In_ const uint64_t buffsize);

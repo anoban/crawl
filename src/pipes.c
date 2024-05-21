@@ -49,7 +49,7 @@ HANDLE child_process_stdout_handle = NULL;
 // this_process_stdin_handle and child_process_stdout_handle form the two ends of one pipe.
 // hThisProcessStdout and hChildProcessStdin form the two ends of the other pipe.
 
-bool   launch_python(void) {
+bool   LaunchPythonExe(void) {
     // Create a child process that uses the previously created pipes as stdin & stderr
     PROCESS_INFORMATION child_proc_info;
     STARTUPINFOW        child_proc_startup_info;
@@ -129,7 +129,7 @@ bool   launch_python(void) {
     return true;
 }
 
-bool read_pythons_stdout(_Inout_ char* const restrict write_buffer, _In_ const uint64_t buffsize) {
+bool ReadStdoutPythonExe(_Inout_ char* const restrict write_buffer, _In_ const uint64_t buffsize) {
     // Reads python_t.exe's stdout and writes it to the buffer.
     // If size(stdout) > size(buffer), write will happen until there's no space in the buffer.
 
@@ -144,7 +144,7 @@ bool read_pythons_stdout(_Inout_ char* const restrict write_buffer, _In_ const u
     return pipe_read_status;
 }
 
-bool get_installed_python_version(_Inout_ char* const restrict version_buffer, _In_ const uint64_t buffsize) {
+bool GetSystemPythonExeVersion(_Inout_ char* const restrict version_buffer, _In_ const uint64_t buffsize) {
     // A struct to specify the security attributes of the pipes.
     // .bInheritHandle = true makes pipe handles inheritable.
     SECURITY_ATTRIBUTES pipe_security_attrs = { .bInheritHandle       = true,
@@ -163,10 +163,10 @@ bool get_installed_python_version(_Inout_ char* const restrict version_buffer, _
         return false;
     }
 
-    bool launch_status = launch_python(), read_status = false;
+    bool launch_status = LaunchPythonExe(), read_status = false;
 
     if (launch_status) {
-        read_status = read_pythons_stdout(version_buffer, buffsize);
+        read_status = ReadStdoutPythonExe(version_buffer, buffsize);
         if (!read_status) {
             fwprintf_s(stderr, L"Error %lu in read_pythons_stdout.\n", GetLastError());
             return false;
