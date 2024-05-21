@@ -10,11 +10,12 @@
 
 int wmain(_In_opt_ int argc, _In_opt_ wchar_t* argv[]) {
     assert(argc == 2);
-    srand(time(NULL));
-    const int minor = (rand() % 5) + 1;
-    const int major = (rand() % 12) + 1;
 
     if (!wcsncmp(argv[1], L"--version", 10LLU)) {
+        srand(time(NULL));
+        const int minor = (rand() % 5) + 1;
+        const int major = (rand() % 12) + 1;
+
         wprintf_s(L"Python 3.%d.%d\n", major, minor);
         return EXIT_SUCCESS;
     }

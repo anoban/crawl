@@ -49,7 +49,7 @@ HANDLE child_process_stdout_handle = NULL;
 // this_process_stdin_handle and child_process_stdout_handle form the two ends of one pipe.
 // hThisProcessStdout and hChildProcessStdin form the two ends of the other pipe.
 
-bool   LaunchPythonExe(void) {
+bool LaunchPythonExe(void) {
     // Create a child process that uses the previously created pipes as stdin & stderr
     PROCESS_INFORMATION child_proc_info;
     STARTUPINFOW        child_proc_startup_info;

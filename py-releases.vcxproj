@@ -24,6 +24,7 @@
     <ProjectGuid>{0b489252-f3bd-476b-bbea-b1d8ecc9a3d6}</ProjectGuid>
     <RootNamespace>pyreleases</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>pyreleases</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -121,7 +122,7 @@
       <UseStandardPreprocessor>true</UseStandardPreprocessor>
       <PreprocessKeepComments>false</PreprocessKeepComments>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
-      <ExceptionHandling>Sync</ExceptionHandling>
+      <ExceptionHandling>false</ExceptionHandling>
       <CompileAs>CompileAsC</CompileAs>
       <DiagnosticsFormat>Caret</DiagnosticsFormat>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -132,6 +133,7 @@
       <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
       <UseProcessorExtensions>None</UseProcessorExtensions>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <DisableSpecificWarnings>4710;4820;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -151,7 +153,7 @@
       <UseStandardPreprocessor>true</UseStandardPreprocessor>
       <PreprocessKeepComments>false</PreprocessKeepComments>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
-      <ExceptionHandling>Sync</ExceptionHandling>
+      <ExceptionHandling>false</ExceptionHandling>
       <CompileAs>CompileAsC</CompileAs>
       <DiagnosticsFormat>Caret</DiagnosticsFormat>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -168,6 +170,7 @@
       <LoopUnrolling>1000</LoopUnrolling>
       <UseProcessorExtensions>None</UseProcessorExtensions>
       <CallingConvention>StdCall</CallingConvention>
+      <DisableSpecificWarnings>4710;4820;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

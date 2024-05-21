@@ -95,7 +95,7 @@ hint3_t HttpGet(_In_ const wchar_t* const restrict server, _In_ const wchar_t* r
         0,                             // an unsigned long integer value that contains the length, in bytes, of the total data sent.
         0
     ); // a pointer to a pointer-sized variable that contains an application-defined value that is passed, with the request handle, to
-       // any callback functions.
+        // any callback functions.
 
     if (!status) {
         fwprintf_s(stderr, L"Error %lu in the WinHttpSendRequest.\n", GetLastError());
@@ -116,16 +116,15 @@ PREMATURE_RETURN:
     return (hint3_t) { .session = NULL, .connection = NULL, .request = NULL };
 }
 
-char* ReadHttpResponse(_In_ const hint3_t scr_handles, _Inout_ uint64_t* const restrict response_size) {
+char* ReadHttpResponse(_In_ const hint3_t handles, _Inout_ uint64_t* const restrict response_size) {
     // if the call to HttpGet() failed,
-    if (scr_handles.session_handle == NULL || scr_handles.connection_handle == NULL || scr_handles.request_handle == NULL) {
-        fputws(L"read_http_response failed. Possible errors in previous call to http_get.\n", stderr);
+    if (handles.session == NULL || handles.connection == NULL || handles.request == NULL) {
+        fputws(L"ReadHttpResponse failed! (Errors in previous call to HttpGet)\n", stderr);
         return NULL;
     }
 
-    // this procedure is required to close these three handles.
-    HINTERNET session_handle = scr_handles.session_handle, connection_handle = scr_handles.connection_handle,
-              request_handle = scr_handles.request_handle;
+    // unpack the handles for convenience
+    const HINTERNET hSession = handles.session, hConnection = handles.connection, hRequest = handles.request;
 
     // Calling malloc first and then calling realloc in a do while loop is terribly inefficient for a
     // simple app sending a single GET request.
@@ -133,17 +132,14 @@ char* ReadHttpResponse(_In_ const hint3_t scr_handles, _Inout_ uint64_t* const r
     // last write offset, so the next write operation can start from there such that we can prevent
     // overwriting previously written memory.
 
-    char* buffer             = (char*) malloc(HTTP_RESPONSE_SIZE); // now that's 1 MiB.
-    // if malloc() failed,
+    char* const restrict buffer = (char*) malloc(HTTP_RESPONSE_SIZE); // now that's 1 MiB.
     if (!buffer) {
-        fputws(L"malloc returned NULL", stderr);
+        fputws(L"Memory allocation error in ReadHttpResponse!", stderr);
         return NULL;
     }
-
     memset(buffer, 0U, HTTP_RESPONSE_SIZE); // zero out the buffer.
 
-    bool is_received = WinHttpReceiveResponse(request_handle, NULL);
-
+    const bool is_received = WinHttpReceiveResponse(hRequest, NULL);
     if (!is_received) {
         fwprintf_s(stderr, L"Error %lu in WinHttpReceiveResponse.\n", GetLastError());
         free(buffer);
@@ -158,7 +154,7 @@ char* ReadHttpResponse(_In_ const hint3_t scr_handles, _Inout_ uint64_t* const r
         // for every iteration, zero these counters since these are specific to each query.
         bytes_in_current_query = bytes_read_from_current_query = 0;
 
-        if (!WinHttpQueryDataAvailable(request_handle, &bytes_in_current_query)) {
+        if (!WinHttpQueryDataAvailable(hRequest, &bytes_in_current_query)) {
             fwprintf_s(stderr, L"Error %lu in WinHttpQueryDataAvailable.\n", GetLastError());
             break;
         }
@@ -166,9 +162,7 @@ char* ReadHttpResponse(_In_ const hint3_t scr_handles, _Inout_ uint64_t* const r
         // If there aren't any more bytes to read,
         if (!bytes_in_current_query) break;
 
-        if (!WinHttpReadData(
-                request_handle, buffer + total_bytes_read_from_response, bytes_in_current_query, &bytes_read_from_current_query
-            )) {
+        if (!WinHttpReadData(hRequest, buffer + total_bytes_read_from_response, bytes_in_current_query, &bytes_read_from_current_query)) {
             fwprintf_s(stderr, L"Error %lu in WinHttpReadData.\n", GetLastError());
             break;
         }
@@ -186,9 +180,9 @@ char* ReadHttpResponse(_In_ const hint3_t scr_handles, _Inout_ uint64_t* const r
     } while (bytes_in_current_query > 0);
 
     // using the base CloseHandle() here will (did) crash the debug session.
-    WinHttpCloseHandle(session_handle);
-    WinHttpCloseHandle(connection_handle);
-    WinHttpCloseHandle(request_handle);
+    WinHttpCloseHandle(hSession);
+    WinHttpCloseHandle(hConnection);
+    WinHttpCloseHandle(hRequest);
 
 #ifdef _DEBUG
     wprintf_s(L"%llu bytes have been received in total.\n", total_bytes_read_from_response);
@@ -199,18 +193,18 @@ char* ReadHttpResponse(_In_ const hint3_t scr_handles, _Inout_ uint64_t* const r
 }
 
 // return the offset of the buffer where the stable releases start.
-range_t get_stable_releases_offset_range(_In_ const char* restrict html_body, _In_ const uint32_t size) {
-    range_t delimiters = { .start = 0, .end = 0 };
-    if (!html_body) return delimiters;
+range_t LocateStableReleasesDiv(_In_ const char* const restrict html, _In_ const uint64_t size) {
+    range_t delimiters = { .begin = 0, .end = 0 };
+    if (!html) return delimiters;
 
     uint64_t start_offset = 0, end_offset = 0;
 
     for (uint64_t i = 0; i < size; ++i) {
         // if the text matches the <h2> tag,
-        if (html_body[i] == '<' && html_body[i + 1] == 'h' && html_body[i + 2] == '2' && html_body[i + 3] == '>') {
+        if (html[i] == '<' && html[i + 1] == 'h' && html[i + 2] == '2' && html[i + 3] == '>') {
             // <h2>Stable Releases</h2>
-            if (start_offset == 0 && html_body[i + 4] == 'S' && html_body[i + 5] == 't' && html_body[i + 6] == 'a' &&
-                html_body[i + 7] == 'b' && html_body[i + 8] == 'l' && html_body[i + 9] == 'e') {
+            if (start_offset == 0 && html[i + 4] == 'S' && html[i + 5] == 't' && html[i + 6] == 'a' && html[i + 7] == 'b' &&
+                html[i + 8] == 'l' && html[i + 9] == 'e') {
                 // The HTML body contains only a single <h2> tag with an inner text that starts with "Stable"
                 // so ignoring the " Releases</h2> part for cycle trimming.
                 // If the start offset has already been found, do not waste time in this body in subsequent
@@ -219,8 +213,8 @@ range_t get_stable_releases_offset_range(_In_ const char* restrict html_body, _I
             }
 
             // <h2>Pre-releases</h2>
-            if (html_body[i + 4] == 'P' && html_body[i + 5] == 'r' && html_body[i + 6] == 'e' && html_body[i + 7] == '-' &&
-                html_body[i + 8] == 'r' && html_body[i + 9] == 'e') {
+            if (html[i + 4] == 'P' && html[i + 5] == 'r' && html[i + 6] == 'e' && html[i + 7] == '-' && html[i + 8] == 'r' &&
+                html[i + 9] == 'e') {
                 // The HTML body contains only a single <h2> tag with an inner text that starts with "Pre"
                 // so ignoring the "leases</h2> part for cycle trimming.
                 end_offset = (i - 1);
@@ -230,21 +224,21 @@ range_t get_stable_releases_offset_range(_In_ const char* restrict html_body, _I
         }
     }
 
-    delimiters.start = start_offset;
+    delimiters.begin = start_offset;
     delimiters.end   = end_offset;
 
     return delimiters;
 }
 
-results_t deserialize_stable_releases(_In_ const char* restrict stable_releases_chunk, _In_ const uint64_t size) {
-    // Caller is obliged to free the memory in return.py_start.
+results_t ParseStableReleases(_In_ const char* restrict stable_releases_chunk, _In_ const uint64_t size) {
+    // Caller is obliged to free the memory in return.begin.
 
     // A struct to be returned by this function
-    // Holds a pointer to the first python_t struct in the malloced buffer -> py_start
+    // Holds a pointer to the first python_t struct in the malloced buffer -> begin
     // Number of structs in the allocated memory -> struct_count
     // Number of deserialized structs -> parsed_struct_count
 
-    results_t parse_results = { .py_start = NULL, .struct_count = N_PYTHON_RELEASES, .parsed_struct_count = 0 };
+    results_t parse_results = { .begin = NULL, .capacity = N_PYTHON_RELEASES, .count = 0 };
 
     // if the chunk start is 0 or size is not greater than 0,
     if ((!stable_releases_chunk[0]) || (size <= 0)) return parse_results;
@@ -274,7 +268,7 @@ results_t deserialize_stable_releases(_In_ const char* restrict stable_releases_
     // needed since other release types like arm64, amd32, zip files have similarly formatted urls
     // that differ only at the end.
     // Thus, this conditional is needed to skip over those releases
-    bool     is_amd64 = false;
+    bool is_amd64 = false;
 
     // (size - 100) to prevent reading past the buffer.
     for (uint64_t i = 0; i < (size - 100); ++i) {
@@ -329,7 +323,7 @@ results_t deserialize_stable_releases(_In_ const char* restrict stable_releases_
                 // Copy the chars representing the release version to the deserialized struct's
                 // version_string field.
                 memcpy_s(
-                    (py_releases[last_deserialized_struct_offset]).version_string,
+                    (py_releases[last_deserialized_struct_offset]).version,
                     40U,
                     (stable_releases_chunk + version_start_offset),
                     (version_end_offset - version_start_offset)
@@ -338,7 +332,7 @@ results_t deserialize_stable_releases(_In_ const char* restrict stable_releases_
                 // Copy the chars representing the release url to the deserialized struct's
                 // amd64_download_url field.
                 memcpy_s(
-                    (py_releases[last_deserialized_struct_offset]).amd64_download_url,
+                    (py_releases[last_deserialized_struct_offset]).download_url,
                     150U,
                     (stable_releases_chunk + url_start_offset),
                     (url_end_offset - url_start_offset)
@@ -348,7 +342,7 @@ results_t deserialize_stable_releases(_In_ const char* restrict stable_releases_
                 last_deserialized_struct_offset++;
 
                 // Increment the deserialized struct counter in parsedstructs_t by one.
-                parse_results.parsed_struct_count++;
+                parse_results.count++;
 
                 // Reset the flag.
                 is_amd64         = false;
@@ -362,7 +356,7 @@ results_t deserialize_stable_releases(_In_ const char* restrict stable_releases_
         }
     }
 
-    parse_results.py_start = py_releases;
+    parse_results.begin = py_releases;
 
     return parse_results;
 }
@@ -389,18 +383,14 @@ void PrintReleases(_In_ const results_t parse_results, _In_ const char* restrict
         _putws(L"-----------------------------------------------------------------------------------");
         wprintf_s(L"|\x1b[36m%9s\x1b[m  |\x1b[36m%40s\x1b[m                             |\n", L"Version", L"Download URL");
         _putws(L"-----------------------------------------------------------------------------------");
-        for (uint64_t i = 0; i < parse_results.parsed_struct_count; ++i) {
-            if (!strcmp(python_version, parse_results.py_start[i].version_string)) {
-                wprintf_s(
-                    L"|\x1b[35;47;1m   %-7S |  %-66S \x1b[m|\n",
-                    parse_results.py_start[i].version_string,
-                    parse_results.py_start[i].amd64_download_url
-                );
+        for (uint64_t i = 0; i < parse_results.count; ++i) {
+            if (!strcmp(python_version, parse_results.begin[i].version)) {
+                wprintf_s(L"|\x1b[35;47;1m   %-7S |  %-66S \x1b[m|\n", parse_results.begin[i].version, parse_results.begin[i].download_url);
             } else {
                 wprintf_s(
                     L"|\x1b[91m   %-7S \x1b[m| \x1b[32m %-66S \x1b[m|\n",
-                    parse_results.py_start[i].version_string,
-                    parse_results.py_start[i].amd64_download_url
+                    parse_results.begin[i].version,
+                    parse_results.begin[i].download_url
                 );
             }
         }
@@ -411,11 +401,9 @@ void PrintReleases(_In_ const results_t parse_results, _In_ const char* restrict
         _putws(L"-----------------------------------------------------------------------------------");
         wprintf_s(L"|\x1b[36m%9s\x1b[m  |\x1b[36m%40s\x1b[m                             |\n", L"Version", L"Download URL");
         _putws(L"-----------------------------------------------------------------------------------");
-        for (uint64_t i = 0; i < parse_results.parsed_struct_count; ++i) {
+        for (uint64_t i = 0; i < parse_results.count; ++i) {
             wprintf_s(
-                L"|\x1b[91m   %-7S \x1b[m| \x1b[32m %-66S \x1b[m|\n",
-                parse_results.py_start[i].version_string,
-                parse_results.py_start[i].amd64_download_url
+                L"|\x1b[91m   %-7S \x1b[m| \x1b[32m %-66S \x1b[m|\n", parse_results.begin[i].version, parse_results.begin[i].download_url
             );
         }
         _putws(L"-----------------------------------------------------------------------------------");
