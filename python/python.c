@@ -23,4 +23,4 @@ int wmain(_In_opt_ int argc, _In_opt_ wchar_t* argv[]) {
     return EXIT_FAILURE;
 }
 
-#endif // defined(_DEBUG) || defined(DEBUG)
+#endif

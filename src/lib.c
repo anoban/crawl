@@ -4,21 +4,21 @@
 // Win32 console mode API. At least in these days. MS examples often include this step though! :(
 
 bool ActivateVirtualTerminalEscapes(void) {
-    HANDLE hConsole     = GetStdHandle(STD_OUTPUT_HANDLE);
-    DWORD  console_mode = 0;
+    HANDLE hConsole      = GetStdHandle(STD_OUTPUT_HANDLE);
+    DWORD  dwConsoleMode = 0;
 
     if (hConsole == INVALID_HANDLE_VALUE) {
         fwprintf_s(stderr, L"Error %lu in GetStdHandle.\n", GetLastError());
         return false;
     }
 
-    if (!GetConsoleMode(hConsole, &console_mode)) {
+    if (!GetConsoleMode(hConsole, &dwConsoleMode)) {
         fwprintf_s(stderr, L"Error %lu in GetConsoleMode.\n", GetLastError());
         return false;
     }
 
-    console_mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-    if (!SetConsoleMode(hConsole, console_mode)) {
+    dwConsoleMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+    if (!SetConsoleMode(hConsole, dwConsoleMode)) {
         fwprintf_s(stderr, L"Error %lu in SetConsoleMode.\n", GetLastError());
         return false;
     }
@@ -36,7 +36,7 @@ hint3_t HttpGet(_In_ const wchar_t* const restrict server, _In_ const wchar_t* r
     // initializes internal WinHTTP data structures and prepares for future calls from the application.
     const HINTERNET hSession = WinHttpOpen(
         // impersonating Firefox to avoid request denials.
-        L"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/116.0",
+        L"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0",
         WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY,
         WINHTTP_NO_PROXY_NAME,
         WINHTTP_NO_PROXY_BYPASS,
@@ -86,7 +86,7 @@ hint3_t HttpGet(_In_ const wchar_t* const restrict server, _In_ const wchar_t* r
     }
 
     // WinHttpSendRequest sends the specified request to the HTTP server and returns true if successful, or false otherwise.
-    const bool status = WinHttpSendRequest(
+    const BOOL status = WinHttpSendRequest(
         hRequest,
         WINHTTP_NO_ADDITIONAL_HEADERS, // pointer to a string that contains the additional headers to append to the request.
         0,                             // an unsigned long integer value that contains the length, in characters, of the additional headers.
@@ -132,63 +132,62 @@ char* ReadHttpResponse(_In_ const hint3_t handles, _Inout_ uint64_t* const restr
     // last write offset, so the next write operation can start from there such that we can prevent
     // overwriting previously written memory.
 
-    char* const restrict buffer = (char*) malloc(HTTP_RESPONSE_SIZE); // now that's 1 MiB.
+    char* const restrict buffer = (char*) malloc(HTTP_RESPONSE_SIZE);
     if (!buffer) {
         fputws(L"Memory allocation error in ReadHttpResponse!", stderr);
         return NULL;
     }
     memset(buffer, 0U, HTTP_RESPONSE_SIZE); // zero out the buffer.
 
-    const bool is_received = WinHttpReceiveResponse(hRequest, NULL);
-    if (!is_received) {
+    const BOOL bIsReceived = WinHttpReceiveResponse(hRequest, NULL);
+    if (!bIsReceived) {
         fwprintf_s(stderr, L"Error %lu in WinHttpReceiveResponse.\n", GetLastError());
         free(buffer);
         return NULL;
     }
 
-    uint64_t total_bytes_in_response = 0, total_bytes_read_from_response = 0;
-    // uint32_t because Win32 expects DWORDs.
-    uint32_t bytes_in_current_query = 0, bytes_read_from_current_query = 0;
+    DWORD dwTotalBytesResponse = 0, dwTotalBytesRead = 0;
+    DWORD dwBytesCurrentQuery = 0, dwBytesReadCurrentQuery = 0;
 
     do {
         // for every iteration, zero these counters since these are specific to each query.
-        bytes_in_current_query = bytes_read_from_current_query = 0;
+        dwBytesCurrentQuery = dwBytesReadCurrentQuery = 0;
 
-        if (!WinHttpQueryDataAvailable(hRequest, &bytes_in_current_query)) {
+        if (!WinHttpQueryDataAvailable(hRequest, &dwBytesCurrentQuery)) {
             fwprintf_s(stderr, L"Error %lu in WinHttpQueryDataAvailable.\n", GetLastError());
             break;
         }
 
         // If there aren't any more bytes to read,
-        if (!bytes_in_current_query) break;
+        if (!dwBytesCurrentQuery) break;
 
-        if (!WinHttpReadData(hRequest, buffer + total_bytes_read_from_response, bytes_in_current_query, &bytes_read_from_current_query)) {
+        if (!WinHttpReadData(hRequest, buffer + dwTotalBytesRead, dwBytesCurrentQuery, &dwBytesReadCurrentQuery)) {
             fwprintf_s(stderr, L"Error %lu in WinHttpReadData.\n", GetLastError());
             break;
         }
 
-        // Increment the total counters.
-        total_bytes_in_response        += bytes_in_current_query;
-        total_bytes_read_from_response += bytes_read_from_current_query;
+        // increment the total counters.
+        dwTotalBytesResponse += dwBytesCurrentQuery;
+        dwTotalBytesRead     += dwBytesReadCurrentQuery;
 
-        if (total_bytes_read_from_response >= (HTTP_RESPONSE_SIZE - 128U)) {
+        if (dwTotalBytesRead >= (HTTP_RESPONSE_SIZE - 128U)) {
             fputws(L"Warning: Truncation of response due to insufficient memory!\n", stderr);
             break;
         }
 
+#ifdef _DEBUG
+        wprintf_s(L"This query collected %lu bytes.\n", dwBytesCurrentQuery);
+#endif // _DEBUG
+
         // while there's data in the response to be read,
-    } while (bytes_in_current_query > 0);
+    } while (dwBytesCurrentQuery > 0);
 
     // using the base CloseHandle() here will (did) crash the debug session.
     WinHttpCloseHandle(hSession);
     WinHttpCloseHandle(hConnection);
     WinHttpCloseHandle(hRequest);
 
-#ifdef _DEBUG
-    wprintf_s(L"%llu bytes have been received in total.\n", total_bytes_read_from_response);
-#endif // _DEBUG
-
-    (*response_size) = total_bytes_read_from_response;
+    (*response_size) = dwTotalBytesRead;
     return buffer;
 }
 
@@ -205,9 +204,9 @@ range_t LocateStableReleasesDiv(_In_ const char* const restrict html, _In_ const
             // <h2>Stable Releases</h2>
             if (start_offset == 0 && html[i + 4] == 'S' && html[i + 5] == 't' && html[i + 6] == 'a' && html[i + 7] == 'b' &&
                 html[i + 8] == 'l' && html[i + 9] == 'e') {
-                // The HTML body contains only a single <h2> tag with an inner text that starts with "Stable"
+                // the HTML body contains only a single <h2> tag with an inner text that starts with "Stable"
                 // so ignoring the " Releases</h2> part for cycle trimming.
-                // If the start offset has already been found, do not waste time in this body in subsequent
+                // if the start offset has already been found, do not waste time in this body in subsequent
                 // iterations -> short circuiting with the first conditional.
                 start_offset = (i + 24);
             }
@@ -215,10 +214,10 @@ range_t LocateStableReleasesDiv(_In_ const char* const restrict html, _In_ const
             // <h2>Pre-releases</h2>
             if (html[i + 4] == 'P' && html[i + 5] == 'r' && html[i + 6] == 'e' && html[i + 7] == '-' && html[i + 8] == 'r' &&
                 html[i + 9] == 'e') {
-                // The HTML body contains only a single <h2> tag with an inner text that starts with "Pre"
+                // the HTML body contains only a single <h2> tag with an inner text that starts with "Pre"
                 // so ignoring the "leases</h2> part for cycle trimming.
                 end_offset = (i - 1);
-                // If found, break out of the loop.
+                // if found, break out of the loop.
                 break;
             }
         }
@@ -231,12 +230,12 @@ range_t LocateStableReleasesDiv(_In_ const char* const restrict html, _In_ const
 }
 
 results_t ParseStableReleases(_In_ const char* restrict stable_releases_chunk, _In_ const uint64_t size) {
-    // Caller is obliged to free the memory in return.begin.
+    // caller is obliged to free the memory in return.begin.
 
-    // A struct to be returned by this function
-    // Holds a pointer to the first python_t struct in the malloced buffer -> begin
-    // Number of structs in the allocated memory -> struct_count
-    // Number of deserialized structs -> parsed_struct_count
+    // a struct to be returned by this function
+    // holds a pointer to the first python_t struct in the malloced buffer -> begin
+    // number of structs in the allocated memory -> struct_count
+    // number of deserialized structs -> parsed_struct_count
 
     results_t parse_results = { .begin = NULL, .capacity = N_PYTHON_RELEASES, .count = 0 };
 
@@ -408,6 +407,4 @@ void PrintReleases(_In_ const results_t parse_results, _In_ const char* restrict
         }
         _putws(L"-----------------------------------------------------------------------------------");
     }
-
-    return;
 }

@@ -13,7 +13,7 @@ int wmain(void) {
 
     // ReadHttpResponse will handle if handles are NULLs, no need for external error handling here.
     char* const restrict html_text             = ReadHttpResponse(handles, &response_size);
-    puts(html_text);
+    wprintf_s(L"%llu\n", response_size);
 
     // LocateStableReleasesDiv will handle NULL returns from ReadHttpResponse internally,
     // so again no need for main to handle errors explicitly.
@@ -22,18 +22,18 @@ int wmain(void) {
 
     if ((!stable.begin) && (!stable.end)) {
         fputws(L"Error: Call to LocateStableReleasesDiv failed!", stderr);
-        goto cleanup;
+        goto CLEANUP;
     }
 
-    // zero out the buffer downstream the end of stable releases, (i.e pre releases)
+    // zero out the buffer downstream of the end of stable releases (i.e pre releases)
     memset(html_text + stable.end, 0U, response_size - stable.end);
 
     results_t parsed = ParseStableReleases(html_text + stable.begin, stable.end - stable.begin);
 
     // may happen due to malloc failures or invalid inputs.
     if (!parsed.begin) {
-        fputws(L"Error: deserialize_stable_releases returned a NULL buffer.\n", stderr);
-        goto cleanup;
+        fputws(L"Error: Call to ParseStableReleases failed!", stderr);
+        goto CLEANUP;
     }
 
     char const python_version[BUFF_SIZE] = { 0 };
@@ -55,7 +55,7 @@ int wmain(void) {
     free(parsed.begin);
     return EXIT_SUCCESS;
 
-cleanup:
+CLEANUP:
     free(html_text);
     return EXIT_FAILURE;
 }
