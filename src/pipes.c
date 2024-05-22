@@ -65,7 +65,7 @@ bool LaunchPythonExe(void) {
         pwszExecutable, // lpCommandline must be a modifiable string, passing a string literal will raise an access violation exception.
         NULL,
         NULL,
-        true,
+        TRUE,
         CREATE_NO_WINDOW,
         NULL,
         NULL,
@@ -117,7 +117,7 @@ bool ReadStdoutPythonExe(_Inout_ char* const restrict buffer, _In_ const uint64_
 bool GetSystemPythonExeVersion(_Inout_ char* const restrict version_buffer, _In_ const uint64_t buffsize) {
     // a struct to specify the security attributes of the pipes.
     // .bInheritHandle = true makes pipe handles inheritable.
-    const SECURITY_ATTRIBUTES SecAttrs = { .bInheritHandle = true, .lpSecurityDescriptor = NULL, .nLength = sizeof(SECURITY_ATTRIBUTES) };
+    const SECURITY_ATTRIBUTES SecAttrs = { .bInheritHandle = TRUE, .lpSecurityDescriptor = NULL, .nLength = sizeof(SECURITY_ATTRIBUTES) };
 
     // creating child process ------> parent process pipe.
     if (!CreatePipe(&hThisProcStdin, &hPythonExeStdout, &SecAttrs, 0)) {

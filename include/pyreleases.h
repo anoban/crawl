@@ -3,7 +3,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define WIN32_EXTRA_MEAN
 #define BUFF_SIZE             100LLU
-#define HTTP_RESPONSE_SIZE    1048576LLU // 1 MiB
+#define HTTP_RESPONSE_SIZE    2097152LLU // 2 MiB
 #define N_PYTHON_RELEASES     100LLU
 #define DOWNLOAD_URL_LENGTH   150LLU
 #define VERSION_STRING_LENGTH 40LLU
@@ -42,18 +42,18 @@ typedef struct {
 
 bool ActivateVirtualTerminalEscapes(void);
 
-hint3_t HttpGet(_In_ const wchar_t* const restrict server, _In_ const wchar_t* restrict accesspoint);
+hint3_t HttpGet(_In_ const wchar_t* const restrict pwszServer, _In_ const wchar_t* const restrict pwszAccessPoint);
 
-char* ReadHttpResponse(_In_ const hint3_t scr_handles, _Inout_ uint64_t* const restrict response_size);
+char* ReadHttpResponse(_In_ const hint3_t handles, _Inout_ uint64_t* const restrict response_size);
 
 range_t LocateStableReleasesDiv(_In_ const char* const restrict html, _In_ const uint64_t size);
 
-results_t ParseStableReleases(_In_ const char* restrict stable_releases_chunk, _In_ const uint64_t size);
+results_t ParseStableReleases(_In_ const char* const restrict stable_releases, _In_ const uint64_t size);
 
-void PrintReleases(_In_ const results_t parse_results, _In_ const char* restrict installed_python_version);
+void PrintReleases(_In_ const results_t results, _In_ const char* const restrict system_python_version);
 
 bool LaunchPythonExe(void);
 
-bool ReadStdoutPythonExe(_Inout_ char* const restrict write_buffer, _In_ const uint64_t buffsize);
+bool ReadStdoutPythonExe(_Inout_ char* const restrict buffer, _In_ const uint64_t size);
 
 bool GetSystemPythonExeVersion(_Inout_ char* const restrict version_buffer, _In_ const uint64_t buffsize);
