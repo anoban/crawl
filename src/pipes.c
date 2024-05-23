@@ -29,7 +29,7 @@
 // and the read handle for the child process's standard output cannot be inherited.
 
 // here we are only interested in a one-way communication, we just need this application to read python.exe's stdout through the pipe
-HANDLE hThisProcStdin = NULL, hPythonExeStdout = NULL;
+HANDLE hThisProcStdin = NULL, hPythonExeStdout = NULL; // NOLINT
 
 // launches python.exe that uses the previously created pipe as stdin & stderr
 bool LaunchPythonExe(void) {
@@ -101,7 +101,7 @@ bool LaunchPythonExe(void) {
 }
 
 // reads python.exe's stdout and writes it to the buffer.
-bool ReadStdoutPythonExe(_Inout_ char* const restrict buffer, _In_ const uint64_t size) {
+bool ReadStdoutPythonExe(_Inout_ char* const restrict buffer, _In_ const DWORD size) {
     // if size(stdout) > size(buffer), write will be truncated
 
     DWORD      dwReadBytes     = 0;

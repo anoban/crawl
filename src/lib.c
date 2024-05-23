@@ -119,8 +119,10 @@ char* ReadHttpResponse(_In_ const hint3_t handles, _Inout_ uint64_t* const restr
         return NULL;
     }
 
-    // unpack the handles for convenience
-    const HINTERNET hSession = handles.session, hConnection = handles.connection, hRequest = handles.request;
+    // NOLINTBEGIN(readability-isolate-declaration)
+    const HINTERNET hSession = handles.session, hConnection = handles.connection,
+                    hRequest    = handles.request; // unpack the handles for convenience
+    // NOLINTEND(readability-isolate-declaration)
 
     // calling malloc first and then calling realloc in a do while loop is terribly inefficient for a simple app sending a single GET request.
     // we'll malloc all the needed memory beforehand and use a moving pointer to keep track of the
@@ -140,7 +142,7 @@ char* ReadHttpResponse(_In_ const hint3_t handles, _Inout_ uint64_t* const restr
         return NULL;
     }
 
-    DWORD dwTotalBytesResponse = 0, dwTotalBytesRead = 0, dwBytesCurrentQuery = 0, dwBytesReadCurrentQuery = 0;
+    DWORD dwTotalBytesRead = 0, dwBytesCurrentQuery = 0, dwBytesReadCurrentQuery = 0; // NOLINT(readability-isolate-declaration)
 
     do {
         // for every iteration, zero these counters since these are specific to each query.
@@ -158,9 +160,7 @@ char* ReadHttpResponse(_In_ const hint3_t handles, _Inout_ uint64_t* const restr
             break;
         }
 
-        // increment the total counters.
-        dwTotalBytesResponse += dwBytesCurrentQuery;
-        dwTotalBytesRead     += dwBytesReadCurrentQuery;
+        dwTotalBytesRead += dwBytesReadCurrentQuery;
 
         if (dwTotalBytesRead >= (HTTP_RESPONSE_SIZE - 128U)) {
             fputws(L"Warning: Truncation of response due to insufficient memory!\n", stderr);
@@ -187,7 +187,7 @@ range_t LocateStableReleasesDiv(_In_ const char* const restrict html, _In_ const
     range_t delimiters = { .begin = 0, .end = 0 };
     if (!html) return delimiters;
 
-    uint64_t start = 0, end = 0;
+    uint64_t start = 0, end = 0; // NOLINT(readability-isolate-declaration)
 
     for (uint64_t i = 0; i < size; ++i) {
         // if the text matches the <h2> tag,
@@ -232,27 +232,22 @@ results_t ParseStableReleases(_In_ const char* const restrict stable_releases, _
         fputws(L"Error: Memory allocation error in ParseStableReleases!", stderr);
         return results;
     }
-
     memset(releases, 0, sizeof(python_t) * N_PYTHON_RELEASES);
 
-    // A counter to remember last deserialized python_t struct.
-    uint64_t last_deserialized_struct_offset = 0;
+    uint64_t lastwrite = 0; // counter to remember last deserialized struct.
 
-    // Start and end offsets of the version and url strings.
-    uint64_t url_start_offset = 0, url_end_offset = 0, version_start_offset = 0, version_end_offset = 0;
+    // start and end offsets of the version and url strings.
+    uint64_t urlbegin = 0, urlend = 0, versionbegin = 0, versionend = 0; // NOLINT(readability-isolate-declaration)
 
-    // Target template ->
-    // <a href="https://www.python_t.org/ftp/python_t/3.10.11/python_t-3.10.11-amd64.exe">
+    // target template -> <a href="https://www.python.org/ftp/python/3.10.11/python-3.10.11-amd64.exe">
 
-    // A bool to keep identify whether the release in a amd64.exe format release.
-    // needed since other release types like arm64, amd32, zip files have similarly formatted urls
-    // that differ only at the end.
-    // Thus, this conditional is needed to skip over those releases
+    // stores whether the release in an -amd64.exe format release (for x86-64 AMD platforms)
+    // needed since other release types like arm64, amd32, zip files have similarly formatted urls that differ only at the end.
     bool is_amd64 = false;
 
     // (size - 100) to prevent reading past the buffer.
-    for (uint64_t i = 0; i < (size - 100); ++i) {
-        if (stable_releases[i] == '<' && stable_releases[i + 1] == 'a') {
+    for (unsigned i = 0; i < (size - 100); ++i) {
+        if (stable_releases[i] == '<' && stable_releases[i + 1] == 'a') { // targetting <a> tags
             if (stable_releases[i + 2] == ' ' && stable_releases[i + 3] == 'h' && stable_releases[i + 4] == 'r' &&
                 stable_releases[i + 5] == 'e' && stable_releases[i + 6] == 'f' && stable_releases[i + 7] == '=' &&
                 stable_releases[i + 8] == '"' && stable_releases[i + 9] == 'h' && stable_releases[i + 10] == 't' &&
@@ -267,70 +262,63 @@ results_t ParseStableReleases(_In_ const char* const restrict stable_releases, _
                 stable_releases[i + 35] == '/' && stable_releases[i + 36] == 'p' && stable_releases[i + 37] == 'y' &&
                 stable_releases[i + 38] == 't' && stable_releases[i + 39] == 'h' && stable_releases[i + 40] == 'o' &&
                 stable_releases[i + 41] == 'n' && stable_releases[i + 42] == '/') {
-                url_start_offset     = i + 9;
-                version_start_offset = i + 43;
+                // targetting <a> tags in the form href="https://www.python.org/ftp/python/ ...>
+                urlbegin     = i + 9;                                         // ...https://www.python.org/ftp/python/.....
+                versionbegin = i + 43;                                        // ...3.10.11/python-3.10.11-amd64.exe.....
 
-                for (uint32_t j = 0; j < 50; ++j) {
-                    if (stable_releases[i + j + 43] == '/') {
-                        version_end_offset = i + j + 43;
+                for (unsigned j = versionbegin; j < versionbegin + 15; ++j) { // check 15 chars downstream for the next forward slash
+                    if (stable_releases[j] == '/') {                          // ...3.10.11/....
+                        versionend = versionbegin + j - 1;
                         break;
                     }
                 }
+                // it'll be more efficient to selectively examine only the -amd64.exe releases! but the token needed to evaluate this occurs at the end of the url! YIKES!
 
-                // The above equality checks will pass even for non <>amd64.exe releases :(
-                // So, check the url's ending for <>amd64.exe
-                for (uint32_t j = 0; j < 50; ++j) {
-                    if (stable_releases[i + j + 43] == 'a' && stable_releases[i + j + 44] == 'm' && stable_releases[i + j + 45] == 'd' &&
-                        stable_releases[i + j + 46] == '6' && stable_releases[i + j + 47] == '4' && stable_releases[i + j + 48] == '.' &&
-                        stable_releases[i + j + 49] == 'e' && stable_releases[i + j + 50] == 'x' && stable_releases[i + j + 51] == 'e') {
-                        url_end_offset = i + j + 52;
-                        // If every char checks out, set the flag true.
-                        is_amd64       = true;
+                // the above equality checks will pass even for non -amd64.exe releases, so check the url's end for -amd64.exe
+                // ...3.10.11/python-3.10.11-amd64.exe.....
+                // (8 + versionend - versionbegin) will help us jump directly to -amd.exe
+                // a stride of 8 bytes to skip over "/python-"
+                // a stride of (versionend - versionbegin) bytes to skip over "3.10.11"
+                for (unsigned k = versionend + 8 + versionend - versionbegin; k < 20; ++k) { // .....-amd64.exe.....
+                    if (stable_releases[k + 43] == 'a' && stable_releases[k + 44] == 'm' && stable_releases[k + 45] == 'd' &&
+                        stable_releases[k + 46] == '6' && stable_releases[k + 47] == '4' && stable_releases[k + 48] == '.' &&
+                        stable_releases[k + 49] == 'e' && stable_releases[k + 50] == 'x' && stable_releases[k + 51] == 'e') {
+                        urlend   = k + 52;
+                        is_amd64 = true;
                         break;
                     }
                 }
             }
 
-            // If the release is indeed an amd64.exe release,
-            if (is_amd64) {
-                /* Zeroed the whole malloced buffer, at line 283. So, this is unnecessary now. */
-                // Zero the struct fields.
-                // memset(py_releases[last_deserialized_struct_offset].version_string, 0, 40);
-                // memset(py_releases[last_deserialized_struct_offset].amd64_download_url, 0, 150);
+            // if the release is not an -amd64.exe release,
+            if (!is_amd64) continue;
 
-                // Copy the chars representing the release version to the deserialized struct's
-                // version_string field.
-                memcpy_s(
-                    (releases[last_deserialized_struct_offset]).version,
-                    40U,
-                    (stable_releases + version_start_offset),
-                    (version_end_offset - version_start_offset)
-                );
+            /* Zeroed the whole malloced buffer, at line 283. So, this is unnecessary now. */
+            // Zero the struct fields.
+            // memset(py_releases[last_deserialized_struct_offset].version_string, 0, 40);
+            // memset(py_releases[last_deserialized_struct_offset].amd64_download_url, 0, 150);
 
-                // Copy the chars representing the release url to the deserialized struct's
-                // amd64_download_url field.
-                memcpy_s(
-                    (releases[last_deserialized_struct_offset]).download_url,
-                    150U,
-                    (stable_releases + url_start_offset),
-                    (url_end_offset - url_start_offset)
-                );
+            // Copy the chars representing the release version to the deserialized struct's
+            // version_string field.
+            memcpy_s((releases[lastwrite]).version, 40U, (stable_releases + versionbegin), (versionend - versionbegin));
 
-                // Increment the counter for last deserialized struct by one.
-                last_deserialized_struct_offset++;
+            // Copy the chars representing the release url to the deserialized struct's
+            // amd64_download_url field.
+            memcpy_s((releases[lastwrite]).download_url, 150U, (stable_releases + urlbegin), (urlend - urlbegin));
 
-                // Increment the deserialized struct counter in parsedstructs_t by one.
-                results.count++;
+            // Increment the counter for last deserialized struct by one.
+            lastwrite++;
 
-                // Reset the flag.
-                is_amd64         = false;
+            // Increment the deserialized struct counter in parsedstructs_t by one.
+            results.count++;
 
-                // Reset the offsets.
-                url_start_offset = url_end_offset = version_start_offset = version_end_offset = 0;
+            // Reset the flag.
+            is_amd64 = false;
 
-                // If the release is not an amd64.exe,
-            } else
-                continue;
+            // Reset the offsets.
+            urlbegin = urlend = versionbegin = versionend = 0;
+
+            // If the release is not an amd64.exe,
         }
     }
 

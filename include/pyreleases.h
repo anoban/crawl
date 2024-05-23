@@ -54,6 +54,6 @@ void PrintReleases(_In_ const results_t results, _In_ const char* const restrict
 
 bool LaunchPythonExe(void);
 
-bool ReadStdoutPythonExe(_Inout_ char* const restrict buffer, _In_ const uint64_t size);
+bool ReadStdoutPythonExe(_Inout_ char* const restrict buffer, _In_ const DWORD size);
 
 bool GetSystemPythonExeVersion(_Inout_ char* const restrict version_buffer, _In_ const uint64_t buffsize);

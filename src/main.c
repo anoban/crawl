@@ -1,18 +1,20 @@
 #include <pyreleases.h>
-
-// Lookup https://learn.microsoft.com/en-us/previous-versions/hf4y5e3w(v=vs.140)?redirectedfrom=MSDN
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+// lookup https://learn.microsoft.com/en-us/previous-versions/hf4y5e3w(v=vs.140)?redirectedfrom=MSDN
 
 int wmain(void) {
     if (!ActivateVirtualTerminalEscapes())
         fputws(L"Win32 Virtual Terminal Escape sequences are not enabled! Programme output will fall back to black and white!", stderr);
 
-    const wchar_t* const restrict SERVER       = L"www.python.org";
-    const wchar_t* const restrict ACCESS_POINT = L"/downloads/windows/";
-    const hint3_t handles                      = HttpGet(SERVER, ACCESS_POINT);
-    uint64_t      response_size                = 0;
+    wchar_t       SERVER[BUFF_SIZE]       = L"www.python.org";
+    wchar_t       ACCESS_POINT[BUFF_SIZE] = L"/downloads/windows/";
+    const hint3_t handles                 = HttpGet(SERVER, ACCESS_POINT);
+    uint64_t      response_size           = 0;
 
     // ReadHttpResponse will handle if handles are NULLs, no need for external error handling here.
-    char* const restrict html_text             = ReadHttpResponse(handles, &response_size);
+    char* const restrict html_text        = ReadHttpResponse(handles, &response_size);
     wprintf_s(L"%llu\n", response_size);
 
     // LocateStableReleasesDiv will handle NULL returns from ReadHttpResponse internally,

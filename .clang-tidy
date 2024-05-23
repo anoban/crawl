@@ -207,7 +207,8 @@ User: anoban
 # Specifies the name or e-mail of the user running clang-tidy. This option is used, for example, to place the correct user name
 # in TODO() comments in the relevant check.
 
-UseColor: true
+UseColor: false
+# makes the VS2022 outputs messy with VTE colour codes!
 
 # for the configs in bugprone-argument-comment, clang-tidy uses an arbitraty heuristic to determine how close the comment is to the
 # parameter name. it'll issue a diagnostic if the comment in `ago` where the parameter name was `age` but won't when the comment is `address`
