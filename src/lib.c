@@ -249,8 +249,10 @@ results_t ParseStableReleases(_In_ const char* const restrict html, _In_ const u
     bool is_amd64 = false;
 
     // (size - 100) to prevent reading past the buffer.
-    for (unsigned i = 0; i < (size - 100); ++i) {
-        if (html[i] == '<' && html[i + 1] == 'a') { // targetting <a> tags
+
+    for (unsigned i = 0; i < size - 100; ++i) {
+        // targetting <a ....> tags
+        if (html[i] == '<' && html[i + 1] == 'a') {
             if (html[i + 2] == ' ' && html[i + 3] == 'h' && html[i + 4] == 'r' && html[i + 5] == 'e' && html[i + 6] == 'f' &&
                 html[i + 7] == '=' && html[i + 8] == '"' && html[i + 9] == 'h' && html[i + 10] == 't' && html[i + 11] == 't' &&
                 html[i + 12] == 'p' && html[i + 13] == 's' && html[i + 14] == ':' && html[i + 15] == '/' && html[i + 16] == '/' &&
@@ -266,10 +268,11 @@ results_t ParseStableReleases(_In_ const char* const restrict html, _In_ const u
 
                 for (unsigned j = versionbegin; j < versionbegin + 15; ++j) { // check 15 chars downstream for the next forward slash
                     if (html[j] == '/') {                                     // ...3.10.11/....
-                        versionend = versionbegin + j - 1;
+                        versionend = j;
                         break;
                     }
                 }
+
                 // it'll be more efficient to selectively examine only the -amd64.exe releases! but the token needed to evaluate this occurs at the end of the url! YIKES!
 
                 // the above equality checks will pass even for non -amd64.exe releases, so check the url's end for -amd64.exe
@@ -277,19 +280,22 @@ results_t ParseStableReleases(_In_ const char* const restrict html, _In_ const u
                 // (8 + versionend - versionbegin) will help us jump directly to -amd.exe
                 // a stride of 8 bytes to skip over "/python-"
                 // a stride of (versionend - versionbegin) bytes to skip over "3.10.11"
-                for (unsigned k = versionend + 8 + versionend - versionbegin; k < 20; ++k) { // .....-amd64.exe.....
-                    if (html[k + 43] == 'a' && html[k + 44] == 'm' && html[k + 45] == 'd' && html[k + 46] == '6' && html[k + 47] == '4' &&
-                        html[k + 48] == '.' && html[k + 49] == 'e' && html[k + 50] == 'x' && html[k + 51] == 'e') {
-                        urlend   = k + 52;
+                for (unsigned k = versionend + 8 + versionend - versionbegin; k < versionend + 8 + versionend - versionbegin + 20;
+                     ++k) { // .....-amd64.exe.....
+                    if (html[k] == 'a' && html[k + 1] == 'm' && html[k + 2] == 'd' && html[k + 3] == '6' && html[k + 4] == '4' &&
+                        html[k + 5] == '.' && html[k + 6] == 'e' && html[k + 7] == 'x' && html[k + 8] == 'e') {
+                        urlend   = k + 9;
                         is_amd64 = true;
                         break;
                     }
                 }
             }
 
-            // if the release is not an -amd64.exe release,
-            if (!is_amd64) continue;
-
+            if (!is_amd64) continue; // if the release is not an -amd64.exe release,
+#ifdef _DEBUG
+            wprintf_s(L"version :: {%5u, %5u}\n", versionbegin, versionend);
+            wprintf_s(L"url :: {%5u, %5u}\n", urlbegin, urlend);
+#endif
             // deserialize the chars representing the release version to the struct's version field.
             memcpy_s((releases[lastwrite]).version, VERSION_STRING_LENGTH, html + versionbegin, versionend - versionbegin);
             // deserialize the chars representing the release url to the struct's download_url field.

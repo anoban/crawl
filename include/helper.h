@@ -19,7 +19,7 @@ static uint8_t* Open(_In_ const wchar_t* const restrict filename, _Inout_ size_t
 
     uint8_t* const restrict buffer = malloc(liFsize.QuadPart);
     if (!buffer) {
-        fwprintf_s(stderr, L"Error %lu in malloc\n", GetLastError());
+        fputws(L"Memory allocation error in Open", stderr);
         goto GET_FILESIZE_ERR;
     }
 

@@ -1,10 +1,10 @@
-#define __PARSE_TEST__ 0
-
 #include <helper.h>
 #include <pyreleases.h>
 #include <stdio.h>
 #include <stdlib.h>
 // lookup https://learn.microsoft.com/en-us/previous-versions/hf4y5e3w(v=vs.140)?redirectedfrom=MSDN
+
+#define __PARSE_TEST__ TRUE
 
 int wmain(void) {
     if (!ActivateVirtualTerminalEscapes())
@@ -12,9 +12,8 @@ int wmain(void) {
 
     DWORD response_size = 0;
 
-#if (__PARSE_TEST__ == 1)
+#if __PARSE_TEST__
     char* const restrict html_text = Open(L"./Python Releases for Windows.txt", &response_size);
-    puts(html_text);
 #else
     wchar_t       SERVER[BUFF_SIZE]       = L"www.python.org";
     wchar_t       ACCESS_POINT[BUFF_SIZE] = L"/downloads/windows/";
@@ -52,7 +51,7 @@ int wmain(void) {
     char system_python[BUFF_SIZE] = { 0 };
     if (!GetSystemPythonExeVersion(system_python, BUFF_SIZE)) fputws(L"Error: Call to GetSystemPythonVersion failed!", stderr);
 
-#if defined(DEBUG) || defined(_DEBUG) || defined(__PARSE_TEST__)
+#if (defined(DEBUG) || defined(_DEBUG)) && defined(__PARSE_TEST__)
     wprintf_s(
         L"%llu python releases have been deserialized.\n"
         L"Installed python version is %S\n",
@@ -61,7 +60,7 @@ int wmain(void) {
     );
 #endif
 
-    // PrintReleases will handle empty instances of py_version internally.
+    // PrintReleases will handle empty instances of system_python internally.
     PrintReleases(parsed, system_python);
 
     free(html_text);
