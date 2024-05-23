@@ -225,7 +225,10 @@ results_t ParseStableReleases(_In_ const char* const restrict stable_releases, _
     results_t results = { .begin = NULL, .capacity = 0, .count = 0 };
 
     // if the chunk is NULL or size is not greater than 0,
-    if (!stable_releases || size <= 0) return results;
+    if (!stable_releases || size <= 0) {
+        fputws(L"Error in ParseStableReleases: Possible errors in previous call to LocateStableReleasesDiv!", stderr);
+        return results;
+    }
 
     python_t* releases = malloc(sizeof(python_t) * N_PYTHON_RELEASES);
     if (!releases) {
@@ -234,10 +237,10 @@ results_t ParseStableReleases(_In_ const char* const restrict stable_releases, _
     }
     memset(releases, 0, sizeof(python_t) * N_PYTHON_RELEASES);
 
-    uint64_t lastwrite = 0; // counter to remember last deserialized struct.
+    unsigned lastwrite = 0; // counter to remember last deserialized struct.
 
     // start and end offsets of the version and url strings.
-    uint64_t urlbegin = 0, urlend = 0, versionbegin = 0, versionend = 0; // NOLINT(readability-isolate-declaration)
+    unsigned urlbegin = 0, urlend = 0, versionbegin = 0, versionend = 0; // NOLINT(readability-isolate-declaration)
 
     // target template -> <a href="https://www.python.org/ftp/python/3.10.11/python-3.10.11-amd64.exe">
 
@@ -293,38 +296,18 @@ results_t ParseStableReleases(_In_ const char* const restrict stable_releases, _
             // if the release is not an -amd64.exe release,
             if (!is_amd64) continue;
 
-            /* Zeroed the whole malloced buffer, at line 283. So, this is unnecessary now. */
-            // Zero the struct fields.
-            // memset(py_releases[last_deserialized_struct_offset].version_string, 0, 40);
-            // memset(py_releases[last_deserialized_struct_offset].amd64_download_url, 0, 150);
+            // deserialize the chars representing the release version to the struct's version field.
+            memcpy_s((releases[lastwrite]).version, VERSION_STRING_LENGTH, stable_releases + versionbegin, versionend - versionbegin);
+            // deserialize the chars representing the release url to the struct's download_url field.
+            memcpy_s((releases[lastwrite]).download_url, DOWNLOAD_URL_LENGTH, stable_releases + urlbegin, urlend - urlbegin);
 
-            // Copy the chars representing the release version to the deserialized struct's
-            // version_string field.
-            memcpy_s((releases[lastwrite]).version, 40U, (stable_releases + versionbegin), (versionend - versionbegin));
-
-            // Copy the chars representing the release url to the deserialized struct's
-            // amd64_download_url field.
-            memcpy_s((releases[lastwrite]).download_url, 150U, (stable_releases + urlbegin), (urlend - urlbegin));
-
-            // Increment the counter for last deserialized struct by one.
-            lastwrite++;
-
-            // Increment the deserialized struct counter in parsedstructs_t by one.
+            lastwrite++;                                                  // move the write caret
             results.count++;
-
-            // Reset the flag.
-            is_amd64 = false;
-
-            // Reset the offsets.
-            urlbegin = urlend = versionbegin = versionend = 0;
-
-            // If the release is not an amd64.exe,
+            is_amd64 = urlbegin = urlend = versionbegin = versionend = 0; // reset the flag & offsets.
         }
     }
 
-    results.begin = releases;
-
-    return results;
+    return (results_t) { .begin = releases, .capacity = N_PYTHON_RELEASES, .count = lastwrite };
 }
 
 void PrintReleases(_In_ const results_t results, _In_ const char* const restrict system_python_version) {
