@@ -29,7 +29,7 @@
 // and the read handle for the child process's standard output cannot be inherited.
 
 // here we are only interested in a one-way communication, we just need this application to read python.exe's stdout through the pipe
-HANDLE hThisProcStdin = NULL, hPythonExeStdout = NULL; // NOLINT
+static HANDLE hThisProcStdin = NULL, hPythonExeStdout = NULL; // NOLINT
 
 // launches python.exe that uses the previously created pipe as stdin & stderr
 bool LaunchPythonExe(void) {

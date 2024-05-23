@@ -221,11 +221,11 @@ range_t LocateStableReleasesDiv(_In_ const char* const restrict html, _In_ const
 }
 
 // caller is obliged to free the memory allocated in return.begin.
-results_t ParseStableReleases(_In_ const char* const restrict stable_releases, _In_ const uint64_t size) {
+results_t ParseStableReleases(_In_ const char* const restrict html, _In_ const uint64_t size) {
     results_t results = { .begin = NULL, .capacity = 0, .count = 0 };
 
     // if the chunk is NULL or size is not greater than 0,
-    if (!stable_releases || size <= 0) {
+    if (!html || size <= 0) {
         fputws(L"Error in ParseStableReleases: Possible errors in previous call to LocateStableReleasesDiv!", stderr);
         return results;
     }
@@ -250,27 +250,22 @@ results_t ParseStableReleases(_In_ const char* const restrict stable_releases, _
 
     // (size - 100) to prevent reading past the buffer.
     for (unsigned i = 0; i < (size - 100); ++i) {
-        if (stable_releases[i] == '<' && stable_releases[i + 1] == 'a') { // targetting <a> tags
-            if (stable_releases[i + 2] == ' ' && stable_releases[i + 3] == 'h' && stable_releases[i + 4] == 'r' &&
-                stable_releases[i + 5] == 'e' && stable_releases[i + 6] == 'f' && stable_releases[i + 7] == '=' &&
-                stable_releases[i + 8] == '"' && stable_releases[i + 9] == 'h' && stable_releases[i + 10] == 't' &&
-                stable_releases[i + 11] == 't' && stable_releases[i + 12] == 'p' && stable_releases[i + 13] == 's' &&
-                stable_releases[i + 14] == ':' && stable_releases[i + 15] == '/' && stable_releases[i + 16] == '/' &&
-                stable_releases[i + 17] == 'w' && stable_releases[i + 18] == 'w' && stable_releases[i + 19] == 'w' &&
-                stable_releases[i + 20] == '.' && stable_releases[i + 21] == 'p' && stable_releases[i + 22] == 'y' &&
-                stable_releases[i + 23] == 't' && stable_releases[i + 24] == 'h' && stable_releases[i + 25] == 'o' &&
-                stable_releases[i + 26] == 'n' && stable_releases[i + 27] == '.' && stable_releases[i + 28] == 'o' &&
-                stable_releases[i + 29] == 'r' && stable_releases[i + 30] == 'g' && stable_releases[i + 31] == '/' &&
-                stable_releases[i + 32] == 'f' && stable_releases[i + 33] == 't' && stable_releases[i + 34] == 'p' &&
-                stable_releases[i + 35] == '/' && stable_releases[i + 36] == 'p' && stable_releases[i + 37] == 'y' &&
-                stable_releases[i + 38] == 't' && stable_releases[i + 39] == 'h' && stable_releases[i + 40] == 'o' &&
-                stable_releases[i + 41] == 'n' && stable_releases[i + 42] == '/') {
+        if (html[i] == '<' && html[i + 1] == 'a') { // targetting <a> tags
+            if (html[i + 2] == ' ' && html[i + 3] == 'h' && html[i + 4] == 'r' && html[i + 5] == 'e' && html[i + 6] == 'f' &&
+                html[i + 7] == '=' && html[i + 8] == '"' && html[i + 9] == 'h' && html[i + 10] == 't' && html[i + 11] == 't' &&
+                html[i + 12] == 'p' && html[i + 13] == 's' && html[i + 14] == ':' && html[i + 15] == '/' && html[i + 16] == '/' &&
+                html[i + 17] == 'w' && html[i + 18] == 'w' && html[i + 19] == 'w' && html[i + 20] == '.' && html[i + 21] == 'p' &&
+                html[i + 22] == 'y' && html[i + 23] == 't' && html[i + 24] == 'h' && html[i + 25] == 'o' && html[i + 26] == 'n' &&
+                html[i + 27] == '.' && html[i + 28] == 'o' && html[i + 29] == 'r' && html[i + 30] == 'g' && html[i + 31] == '/' &&
+                html[i + 32] == 'f' && html[i + 33] == 't' && html[i + 34] == 'p' && html[i + 35] == '/' && html[i + 36] == 'p' &&
+                html[i + 37] == 'y' && html[i + 38] == 't' && html[i + 39] == 'h' && html[i + 40] == 'o' && html[i + 41] == 'n' &&
+                html[i + 42] == '/') {
                 // targetting <a> tags in the form href="https://www.python.org/ftp/python/ ...>
                 urlbegin     = i + 9;                                         // ...https://www.python.org/ftp/python/.....
                 versionbegin = i + 43;                                        // ...3.10.11/python-3.10.11-amd64.exe.....
 
                 for (unsigned j = versionbegin; j < versionbegin + 15; ++j) { // check 15 chars downstream for the next forward slash
-                    if (stable_releases[j] == '/') {                          // ...3.10.11/....
+                    if (html[j] == '/') {                                     // ...3.10.11/....
                         versionend = versionbegin + j - 1;
                         break;
                     }
@@ -283,9 +278,8 @@ results_t ParseStableReleases(_In_ const char* const restrict stable_releases, _
                 // a stride of 8 bytes to skip over "/python-"
                 // a stride of (versionend - versionbegin) bytes to skip over "3.10.11"
                 for (unsigned k = versionend + 8 + versionend - versionbegin; k < 20; ++k) { // .....-amd64.exe.....
-                    if (stable_releases[k + 43] == 'a' && stable_releases[k + 44] == 'm' && stable_releases[k + 45] == 'd' &&
-                        stable_releases[k + 46] == '6' && stable_releases[k + 47] == '4' && stable_releases[k + 48] == '.' &&
-                        stable_releases[k + 49] == 'e' && stable_releases[k + 50] == 'x' && stable_releases[k + 51] == 'e') {
+                    if (html[k + 43] == 'a' && html[k + 44] == 'm' && html[k + 45] == 'd' && html[k + 46] == '6' && html[k + 47] == '4' &&
+                        html[k + 48] == '.' && html[k + 49] == 'e' && html[k + 50] == 'x' && html[k + 51] == 'e') {
                         urlend   = k + 52;
                         is_amd64 = true;
                         break;
@@ -297,9 +291,9 @@ results_t ParseStableReleases(_In_ const char* const restrict stable_releases, _
             if (!is_amd64) continue;
 
             // deserialize the chars representing the release version to the struct's version field.
-            memcpy_s((releases[lastwrite]).version, VERSION_STRING_LENGTH, stable_releases + versionbegin, versionend - versionbegin);
+            memcpy_s((releases[lastwrite]).version, VERSION_STRING_LENGTH, html + versionbegin, versionend - versionbegin);
             // deserialize the chars representing the release url to the struct's download_url field.
-            memcpy_s((releases[lastwrite]).download_url, DOWNLOAD_URL_LENGTH, stable_releases + urlbegin, urlend - urlbegin);
+            memcpy_s((releases[lastwrite]).download_url, DOWNLOAD_URL_LENGTH, html + urlbegin, urlend - urlbegin);
 
             lastwrite++;                                                  // move the write caret
             results.count++;

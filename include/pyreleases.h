@@ -48,7 +48,7 @@ char* ReadHttpResponse(_In_ const hint3_t handles, _Inout_ uint64_t* const restr
 
 range_t LocateStableReleasesDiv(_In_ const char* const restrict html, _In_ const uint64_t size);
 
-results_t ParseStableReleases(_In_ const char* const restrict stable_releases, _In_ const uint64_t size);
+results_t ParseStableReleases(_In_ const char* const restrict html, _In_ const uint64_t size);
 
 void PrintReleases(_In_ const results_t results, _In_ const char* const restrict system_python_version);
 
