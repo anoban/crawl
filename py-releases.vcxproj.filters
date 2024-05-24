@@ -18,9 +18,6 @@
     <ClInclude Include="include\pyreleases.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\helper.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\lib.c">
@@ -30,6 +27,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\pipes.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\http.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

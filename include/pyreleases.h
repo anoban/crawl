@@ -57,3 +57,9 @@ bool LaunchPythonExe(void);
 bool ReadStdoutPythonExe(_Inout_ char* const restrict buffer, _In_ const DWORD size);
 
 bool GetSystemPythonExeVersion(_Inout_ char* const restrict version_buffer, _In_ const uint64_t buffsize);
+
+uint8_t* Open(_In_ const wchar_t* const restrict filename, _Inout_ size_t* const restrict size);
+
+bool Serialize(_In_ const uint8_t* const restrict buffer, _In_ const uint32_t size, _In_ const wchar_t* restrict filename);
+
+char* ReadHttpResponseEx(_In_ const hint3_t handles, _Inout_ uint64_t* const restrict response_size);

@@ -24,164 +24,6 @@ bool ActivateVirtualTerminalEscapes(void) {
     return true;
 }
 
-// a convenient wrapper around WinHttp functions.
-// allows to send a GET request and receive the response in one function call without having to deal with the cascade of WinHttp callbacks.
-hint3_t HttpGet(_In_ const wchar_t* const restrict pwszServer, _In_ const wchar_t* const restrict pwszAccessPoint) {
-    // WinHttpOpen returns a valid session handle if successful, or NULL otherwise.
-    // first of the WinHTTP functions called by an application.
-    // initializes internal WinHTTP data structures and prepares for future calls from the application.
-    const HINTERNET hSession = WinHttpOpen(
-        // impersonating Firefox to avoid request denials.
-        L"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0", // modified on 22-05-2024
-        WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY,
-        WINHTTP_NO_PROXY_NAME,
-        WINHTTP_NO_PROXY_BYPASS,
-        0
-    );
-
-    if (!hSession) {
-        fwprintf_s(stderr, L"Error %lu in WinHttpOpen.\n", GetLastError());
-        goto PREMATURE_RETURN;
-    }
-
-    // WinHttpConnect specifies the initial target server of an HTTP request and returns an HINTERNET connection handle
-    // to an HTTP session for that initial target.
-    // returns a valid connection handle to the HTTP session if the connection is successful, or NULL otherwise.
-    const HINTERNET hConnection = WinHttpConnect(
-        hSession,
-        pwszServer,
-        INTERNET_DEFAULT_HTTP_PORT, // uses port 80 for HTTP and port 443 for HTTPS.
-        0
-    );
-
-    if (!hConnection) {
-        fwprintf_s(stderr, L"Error %lu in WinHttpConnect.\n", GetLastError());
-        goto CLOSE_SESSION_HANDLE;
-    }
-
-    // WinHttpOpenRequest creates an HTTP request handle.
-    // an HTTP request handle holds a request to send to an HTTP server and contains all RFC822/MIME/HTTP headers to be sent as part of the
-    // request.
-    const HINTERNET hRequest = WinHttpOpenRequest(
-        hConnection,
-        L"GET",
-        pwszAccessPoint,
-        NULL, // pointer to a string that contains the HTTP version. If this parameter is NULL, the function uses HTTP/1.1
-        WINHTTP_NO_REFERER,
-        WINHTTP_DEFAULT_ACCEPT_TYPES, // pointer to a null-terminated array of string pointers that
-        // specifies media types accepted by the client.
-        // WINHTTP_DEFAULT_ACCEPT_TYPES, no types are accepted by the client.
-        // typically, servers handle a lack of accepted types as indication that the client accepts
-        // only documents of type "text/*"; that is, only text documents & no pictures or other binary files
-        0
-    );
-
-    if (!hRequest) {
-        fwprintf_s(stderr, L"Error %lu in the WinHttpOpenRequest.\n", GetLastError());
-        goto CLOSE_CONNECTION_HANDLE;
-    }
-
-    // WinHttpSendRequest sends the specified request to the HTTP server and returns true if successful, or false otherwise.
-    const BOOL status = WinHttpSendRequest(
-        hRequest,
-        WINHTTP_NO_ADDITIONAL_HEADERS, // pointer to a string that contains the additional headers to append to the request.
-        0,                             // an unsigned long integer value that contains the length, in characters, of the additional headers.
-        WINHTTP_NO_REQUEST_DATA,       // pointer to a buffer that contains any optional data to send immediately after the request headers
-        0,                             // an unsigned long integer value that contains the length, in bytes, of the optional data.
-        0,                             // an unsigned long integer value that contains the length, in bytes, of the total data sent.
-        0
-    ); // a pointer to a pointer-sized variable that contains an application-defined value that is passed, with the request handle, to
-        // any callback functions.
-
-    if (!status) {
-        fwprintf_s(stderr, L"Error %lu in the WinHttpSendRequest.\n", GetLastError());
-        goto CLOSE_REQUEST_HANDLE;
-    }
-
-    // these 3 handles need to be closed by the caller.
-    return (hint3_t) { .session = hSession, .connection = hConnection, .request = hRequest };
-
-// cleanup
-CLOSE_REQUEST_HANDLE:
-    WinHttpCloseHandle(hRequest);
-CLOSE_CONNECTION_HANDLE:
-    WinHttpCloseHandle(hConnection);
-CLOSE_SESSION_HANDLE:
-    WinHttpCloseHandle(hSession);
-PREMATURE_RETURN:
-    return (hint3_t) { .session = NULL, .connection = NULL, .request = NULL };
-}
-
-char* ReadHttpResponse(_In_ const hint3_t handles, _Inout_ uint64_t* const restrict response_size) {
-    // if the call to HttpGet() failed,
-    if (handles.session == NULL || handles.connection == NULL || handles.request == NULL) {
-        fputws(L"ReadHttpResponse failed! (Errors in previous call to HttpGet)\n", stderr);
-        return NULL;
-    }
-
-    // NOLINTBEGIN(readability-isolate-declaration)
-    const HINTERNET hSession = handles.session, hConnection = handles.connection,
-                    hRequest    = handles.request; // unpack the handles for convenience
-    // NOLINTEND(readability-isolate-declaration)
-
-    // calling malloc first and then calling realloc in a do while loop is terribly inefficient for a simple app sending a single GET request.
-    // we'll malloc all the needed memory beforehand and use a moving pointer to keep track of the
-    // last write offset, so the next write can start from where the last write terminated
-
-    char* const restrict buffer = malloc(HTTP_RESPONSE_SIZE);
-    if (!buffer) {
-        fputws(L"Memory allocation error in ReadHttpResponse!", stderr);
-        return NULL;
-    }
-    memset(buffer, 0U, HTTP_RESPONSE_SIZE); // zero out the buffer.
-
-    const BOOL bIsReceived = WinHttpReceiveResponse(hRequest, NULL);
-    if (!bIsReceived) {
-        fwprintf_s(stderr, L"Error %lu in WinHttpReceiveResponse.\n", GetLastError());
-        free(buffer);
-        return NULL;
-    }
-
-    DWORD dwTotalBytesRead = 0, dwBytesCurrentQuery = 0, dwBytesReadCurrentQuery = 0; // NOLINT(readability-isolate-declaration)
-
-    do {
-        // for every iteration, zero these counters since these are specific to each query.
-        dwBytesCurrentQuery = dwBytesReadCurrentQuery = 0;
-
-        if (!WinHttpQueryDataAvailable(hRequest, &dwBytesCurrentQuery)) {
-            fwprintf_s(stderr, L"Error %lu in WinHttpQueryDataAvailable.\n", GetLastError());
-            break;
-        }
-
-        if (!dwBytesCurrentQuery) break; // if there aren't any more bytes to read,
-
-        if (!WinHttpReadData(hRequest, buffer + dwTotalBytesRead, dwBytesCurrentQuery, &dwBytesReadCurrentQuery)) {
-            fwprintf_s(stderr, L"Error %lu in WinHttpReadData.\n", GetLastError());
-            break;
-        }
-
-        dwTotalBytesRead += dwBytesReadCurrentQuery;
-
-        if (dwTotalBytesRead >= (HTTP_RESPONSE_SIZE - 128U)) {
-            fputws(L"Warning: Truncation of response due to insufficient memory!\n", stderr);
-            break;
-        }
-
-#ifdef _DEBUG
-        wprintf_s(L"This query collected %lu bytes from the response\n", dwBytesCurrentQuery);
-#endif // _DEBUG
-
-    } while (dwBytesCurrentQuery > 0); // while there's still data in the response,
-
-    // using regular CloseHandle() to close HINTERNET handles will (did) crash the debug session.
-    WinHttpCloseHandle(hSession);
-    WinHttpCloseHandle(hConnection);
-    WinHttpCloseHandle(hRequest);
-
-    *response_size = dwTotalBytesRead;
-    return buffer;
-}
-
 // return the offset of the buffer where the stable releases start.
 range_t LocateStableReleasesDiv(_In_ const char* const restrict html, _In_ const uint64_t size) {
     range_t delimiters = { .begin = 0, .end = 0 };
@@ -263,8 +105,8 @@ results_t ParseStableReleases(_In_ const char* const restrict html, _In_ const u
                 html[i + 37] == 'y' && html[i + 38] == 't' && html[i + 39] == 'h' && html[i + 40] == 'o' && html[i + 41] == 'n' &&
                 html[i + 42] == '/') {
                 // targetting <a> tags in the form href="https://www.python.org/ftp/python/ ...>
-                urlbegin     = i + 9;                                         // ...https://www.python.org/ftp/python/.....
-                versionbegin = i + 43;                                        // ...3.10.11/python-3.10.11-amd64.exe.....
+                urlbegin     = i + 9;  // ...https://www.python.org/ftp/python/.....
+                versionbegin = i + 43; // ...3.10.11/python-3.10.11-amd64.exe.....
 
                 for (unsigned j = versionbegin; j < versionbegin + 15; ++j) { // check 15 chars downstream for the next forward slash
                     if (html[j] == '/') {                                     // ...3.10.11/....
@@ -292,16 +134,18 @@ results_t ParseStableReleases(_In_ const char* const restrict html, _In_ const u
             }
 
             if (!is_amd64) continue; // if the release is not an -amd64.exe release,
-#ifdef _DEBUG
-            wprintf_s(L"version :: {%5u, %5u}\n", versionbegin, versionend);
-            wprintf_s(L"url :: {%5u, %5u}\n", urlbegin, urlend);
-#endif
+
+            // #ifdef _DEBUG
+            //             wprintf_s(L"version :: {%5u, %5u}\n", versionbegin, versionend);
+            //             wprintf_s(L"url :: {%5u, %5u}\n", urlbegin, urlend);
+            // #endif
+
             // deserialize the chars representing the release version to the struct's version field.
             memcpy_s((releases[lastwrite]).version, VERSION_STRING_LENGTH, html + versionbegin, versionend - versionbegin);
             // deserialize the chars representing the release url to the struct's download_url field.
             memcpy_s((releases[lastwrite]).download_url, DOWNLOAD_URL_LENGTH, html + urlbegin, urlend - urlbegin);
 
-            lastwrite++;                                                  // move the write caret
+            lastwrite++; // move the write caret
             results.count++;
             is_amd64 = urlbegin = urlend = versionbegin = versionend = 0; // reset the flag & offsets.
         }
@@ -311,18 +155,18 @@ results_t ParseStableReleases(_In_ const char* const restrict html, _In_ const u
 }
 
 void PrintReleases(_In_ const results_t results, _In_ const char* const restrict system_python_version) {
-    // if somehow the system cannot find the installed python version, and a empty buffer is returned,
-    const bool is_unavailable = (!system_python_version) ? true : false;
+    // if somehow the system cannot find the installed python version, and an empty buffer is returned,
+    const bool is_unavailable = !system_python_version ? true : false;
 
     // if the buffer is empty don't bother with these...
     if (!is_unavailable) {
-        char python_version[BUFF_SIZE] = { 0 };
+        char version_number[BUFF_SIZE] = { 0 };
 
         for (uint64_t i = 7; i < BUFF_SIZE; ++i) {
             // ASCII '0' to '9' is 48 to 57 and '.' is 46 ('/' is 47)
             // system_python_version will be in the form of "Python 3.10.5"
-            // Numeric version starts after offset 7. (@ 8)
-            if ((system_python_version[i] >= 46) && (system_python_version[i] <= 57)) python_version[i - 7] = system_python_version[i];
+            // version number starts after offset 7. (@ 8)
+            if ((system_python_version[i] >= 46) && (system_python_version[i] <= 57)) version_number[i - 7] = system_python_version[i];
             // if any other characters encountered,
             else
                 break;
@@ -332,14 +176,13 @@ void PrintReleases(_In_ const results_t results, _In_ const char* const restrict
         wprintf_s(L"|\x1b[36m%9s\x1b[m  |\x1b[36m%40s\x1b[m                             |\n", L"Version", L"Download URL");
         _putws(L"-----------------------------------------------------------------------------------");
         for (uint64_t i = 0; i < results.count; ++i)
-            if (!strcmp(python_version, results.begin[i].version))
+            if (!strcmp(version_number, results.begin[i].version)) // to highlight the system Python version
                 wprintf_s(L"|\x1b[35;47;1m   %-7S |  %-66S \x1b[m|\n", results.begin[i].version, results.begin[i].download_url);
             else
                 wprintf_s(L"|\x1b[91m   %-7S \x1b[m| \x1b[32m %-66S \x1b[m|\n", results.begin[i].version, results.begin[i].download_url);
         _putws(L"-----------------------------------------------------------------------------------");
 
-    } // !is_unavailable
-    else {
+    } else { // do not bother with highlighting
         _putws(L"-----------------------------------------------------------------------------------");
         wprintf_s(L"|\x1b[36m%9s\x1b[m  |\x1b[36m%40s\x1b[m                             |\n", L"Version", L"Download URL");
         _putws(L"-----------------------------------------------------------------------------------");
@@ -347,4 +190,63 @@ void PrintReleases(_In_ const results_t results, _In_ const char* const restrict
             wprintf_s(L"|\x1b[91m   %-7S \x1b[m| \x1b[32m %-66S \x1b[m|\n", results.begin[i].version, results.begin[i].download_url);
         _putws(L"-----------------------------------------------------------------------------------");
     }
+}
+
+uint8_t* Open(_In_ const wchar_t* const restrict filename, _Inout_ size_t* const restrict size) {
+    DWORD          nbytes  = 0UL;
+    LARGE_INTEGER  liFsize = { .QuadPart = 0LLU };
+    const HANDLE64 hFile   = CreateFileW(filename, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, NULL);
+
+    if (hFile == INVALID_HANDLE_VALUE) {
+        fwprintf_s(stderr, L"Error %lu in CreateFileW\n", GetLastError());
+        goto INVALID_HANDLE_ERR;
+    }
+
+    if (!GetFileSizeEx(hFile, &liFsize)) {
+        fwprintf_s(stderr, L"Error %lu in GetFileSizeEx\n", GetLastError());
+        goto GET_FILESIZE_ERR;
+    }
+
+    uint8_t* const restrict buffer = malloc(liFsize.QuadPart);
+    if (!buffer) {
+        fputws(L"Memory allocation error in Open\n", stderr);
+        goto GET_FILESIZE_ERR;
+    }
+
+    if (!ReadFile(hFile, buffer, liFsize.QuadPart, &nbytes, NULL)) {
+        fwprintf_s(stderr, L"Error %lu in ReadFile\n", GetLastError());
+        goto READFILE_ERR;
+    }
+
+    CloseHandle(hFile);
+    *size = liFsize.QuadPart;
+    return buffer;
+
+READFILE_ERR:
+    free(buffer);
+GET_FILESIZE_ERR:
+    CloseHandle(hFile);
+INVALID_HANDLE_ERR:
+    *size = 0;
+    return NULL;
+}
+
+bool Serialize(_In_ const uint8_t* const restrict buffer, _In_ const uint32_t size, _In_ const wchar_t* restrict filename) {
+    const void* const restrict hfile = CreateFileW(filename, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+
+    if (hfile == INVALID_HANDLE_VALUE) {
+        fwprintf_s(stderr, L"Error %lu in CreateFileW\n", GetLastError());
+        return false;
+    }
+
+    DWORD nbyteswritten = 0;
+    if (!WriteFile(hfile, buffer, size, &nbyteswritten, NULL)) {
+        fwprintf_s(stderr, L"Error %lu in WriteFile\n", GetLastError());
+        CloseHandle(hfile);
+        return false;
+    }
+
+    CloseHandle(hfile);
+
+    return true;
 }
