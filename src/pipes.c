@@ -73,7 +73,7 @@ bool LaunchPythonExe(void) {
         &piPythonExe
     );
 
-    // If invocation failed,
+    // if invocation failed,
     if (!bProcCreationStatus) {
         fwprintf_s(stderr, L"Error %lu in CreateProcessW.\n", GetLastError());
         return false;

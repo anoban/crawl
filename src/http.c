@@ -1,9 +1,5 @@
 #include <pyreleases.h>
 
-// DO NOT MIX WININET AND WINHTTP FUNCTIONS, THEY DO NOT WORK IN HARMONY
-
-// a convenient wrapper around WinHttp functions.
-// allows to send a GET request and receive the response in one function call without having to deal with the cascade of WinHttp callbacks.
 hint3_t HttpGet(_In_ const wchar_t* const restrict pwszServer, _In_ const wchar_t* const restrict pwszAccessPoint) {
     // WinHttpOpen returns a valid session handle if successful, or NULL otherwise.
     // first of the WinHTTP functions called by an application.
@@ -180,7 +176,6 @@ PREMATURE_RETURN:
 }
 
 char* ReadHttpResponseEx(_In_ const hint3_t handles, _Inout_ uint64_t* const restrict response_size) {
-    // if the call to HttpGet() failed,
     if (!handles.session && !handles.connection && !handles.request) {
         fputws(L"ReadHttpResponseEx failed! (Errors in previous call to HttpGet)\n", stderr);
         return NULL;
@@ -213,7 +208,15 @@ char* ReadHttpResponseEx(_In_ const hint3_t handles, _Inout_ uint64_t* const res
     }
     memset(buffer, 0U, HTTP_RESPONSE_SIZE); // zero out the buffer.
 
-    WinHttpReadDataEx(hRequest, buffer, HTTP_RESPONSE_SIZE, &dwTotalBytesRead, WINHTTP_READ_DATA_EX_FLAG_FILL_BUFFER, 0, NULL);
+    const DWORD dwReadStatus = // will be 0 if the call succeeded
+        WinHttpReadDataEx(hRequest, buffer, HTTP_RESPONSE_SIZE, &dwTotalBytesRead, WINHTTP_READ_DATA_EX_FLAG_FILL_BUFFER, 0, NULL);
+    // WINHTTP_READ_DATA_EX_FLAG_FILL_BUFFER will condition the WinHttpReadDataEx to return only after all the bytes in the response have been collected in the buffer
+    // without this we'd have to read the response in chunks using a loop, checking every time for bytes remaining
+    if (dwReadStatus) { // dwReadStatus != 0
+        fwprintf_s(stderr, L"Error %lu in WinHttpReadDataEx.\n", GetLastError());
+        free(buffer);
+        bDidFail = true;
+    }
 
 PREMATURE_RETURN:
     // using regular CloseHandle() to close HINTERNET handles will (did) crash the debug session.

@@ -2,7 +2,8 @@
 
 // lookup https://learn.microsoft.com/en-us/previous-versions/hf4y5e3w(v=vs.140)?redirectedfrom=MSDN
 
-#define __PARSE_TEST__ FALSE
+#define __PARSE_TEST__ FALSE // set this to TRUE to test only the parsing logic without meddling with the HTTP callbacks
+// uses a locally stored HTML file for buffer instead of using the server's response
 
 int wmain(void) {
     if (!ActivateVirtualTerminalEscapes())
@@ -10,15 +11,15 @@ int wmain(void) {
 
     DWORD response_size = 0;
 
-#if __PARSE_TEST__
+#if __PARSE_TEST__ // read in and use the manually downloaded text version of www.python.org/downloads/windows.htm
     char* const restrict html_text = Open(L"./Python Releases for Windows.txt", &response_size);
 #else
     wchar_t       SERVER[BUFF_SIZE]       = L"www.python.org";
     wchar_t       ACCESS_POINT[BUFF_SIZE] = L"/downloads/windows/";
     const hint3_t handles                 = HttpGet(SERVER, ACCESS_POINT);
 
-    // ReadHttpResponse will handle if handles are NULLs, no need for external error handling here.
-    char* const restrict html_text        = ReadHttpResponse(handles, &response_size);
+    // ReadHttpResponse or ReadHttpResponseEx will handle if handles are NULLs, no need for external error handling here.
+    char* const restrict html_text        = ReadHttpResponseEx(handles, &response_size);
 #endif
 
     // LocateStableReleasesDiv will handle NULL returns from ReadHttpResponse internally,

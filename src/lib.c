@@ -1,6 +1,5 @@
 #include <pyreleases.h>
 
-// may be unnecessary, Windows console by default seems to be sensitive to VTEs without manually enabling it.
 bool ActivateVirtualTerminalEscapes(void) {
     const void* const restrict hConsole = GetStdHandle(STD_OUTPUT_HANDLE); // HANDLE is just a typedef to void*
     DWORD dwConsoleMode                 = 0;
@@ -62,7 +61,6 @@ range_t LocateStableReleasesDiv(_In_ const char* const restrict html, _In_ const
     return delimiters;
 }
 
-// caller is obliged to free the memory allocated in return.begin.
 results_t ParseStableReleases(_In_ const char* const restrict html, _In_ const uint64_t size) {
     results_t results = { .begin = NULL, .capacity = 0, .count = 0 };
 
