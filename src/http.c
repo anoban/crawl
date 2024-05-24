@@ -28,7 +28,9 @@ hint3_t HttpGet(_In_ const wchar_t* const restrict pwszServer, _In_ const wchar_
     // https://learn.microsoft.com/en-us/windows/win32/wininet/content-encoding
     const BOOL bEnableDecoding   = TRUE;
     // DO NOT MIX WININET AND WINHTTP FUNCTIONS, THEY DO NOT WORK IN HARMONY
-    const BOOL bSetWinHttpDecode = WinHttpSetOption(hSession, WINHTTP_DECOMPRESSION_FLAG_ALL, &bEnableDecoding, sizeof(BOOL));
+    BOOL       bSetWinHttpDecode = WinHttpSetOption(hSession, WINHTTP_OPTION_DECOMPRESSION, &bEnableDecoding, sizeof(BOOL));
+    bSetWinHttpDecode            = WinHttpSetOption(hSession, WINHTTP_DECOMPRESSION_FLAG_ALL, &bEnableDecoding, sizeof(BOOL));
+
     if (!bSetWinHttpDecode) {
         fwprintf_s(stderr, L"Error %lu in the InternetSetOptionW, DEFLATE/gzip decompression request failed!\n", GetLastError());
         goto CLOSE_SESSION_HANDLE;
@@ -104,10 +106,14 @@ PREMATURE_RETURN:
 
 char* ReadHttpResponse(_In_ const hint3_t handles, _Inout_ uint64_t* const restrict response_size) {
     // if the call to HttpGet() failed,
-    if (handles.session == NULL || handles.connection == NULL || handles.request == NULL) {
+    if (!handles.session && !handles.connection && !handles.request) {
         fputws(L"ReadHttpResponse failed! (Errors in previous call to HttpGet)\n", stderr);
         return NULL;
     }
+
+    DWORD dwTotalBytesRead = 0, dwBytesCurrentQuery = 0, dwBytesReadCurrentQuery = 0; // NOLINT(readability-isolate-declaration)
+    bool  bDidFail           = false;
+    char* buffer             = NULL;
 
     // NOLINTBEGIN(readability-isolate-declaration)
     const HINTERNET hSession = handles.session, hConnection = handles.connection,
@@ -117,20 +123,20 @@ char* ReadHttpResponse(_In_ const hint3_t handles, _Inout_ uint64_t* const restr
     const BOOL bIsReceived   = WinHttpReceiveResponse(hRequest, NULL);
     if (!bIsReceived) {
         fwprintf_s(stderr, L"Error %lu in WinHttpReceiveResponse.\n", GetLastError());
+        bDidFail = true;
         goto PREMATURE_RETURN;
     }
 
     // calling malloc first and then calling realloc in a do while loop is terribly inefficient for a simple app sending a single GET request.
     // we'll malloc all the needed memory beforehand and use a moving pointer to keep track of the
     // last write offset, so the next write can start from where the last write terminated
-    char* const restrict buffer = malloc(HTTP_RESPONSE_SIZE);
+    buffer = malloc(HTTP_RESPONSE_SIZE);
     if (!buffer) {
         fputws(L"Memory allocation error in ReadHttpResponse!\n", stderr);
+        bDidFail = true;
         goto PREMATURE_RETURN;
     }
     memset(buffer, 0U, HTTP_RESPONSE_SIZE); // zero out the buffer.
-
-    DWORD dwTotalBytesRead = 0, dwBytesCurrentQuery = 0, dwBytesReadCurrentQuery = 0; // NOLINT(readability-isolate-declaration)
 
     do {
         // for every iteration, zero these counters since these are specific to each query.
@@ -161,55 +167,57 @@ char* ReadHttpResponse(_In_ const hint3_t handles, _Inout_ uint64_t* const restr
 
     } while (dwBytesCurrentQuery > 0); // while there's still data in the response,
 
+PREMATURE_RETURN:
     // using regular CloseHandle() to close HINTERNET handles will (did) crash the debug session.
     WinHttpCloseHandle(hSession);
     WinHttpCloseHandle(hConnection);
     WinHttpCloseHandle(hRequest);
     *response_size = dwTotalBytesRead;
-    return buffer;
-
-PREMATURE_RETURN:
-
-    return NULL;
+    return bDidFail ? NULL : buffer;
 }
 
 char* ReadHttpResponseEx(_In_ const hint3_t handles, _Inout_ uint64_t* const restrict response_size) {
     // if the call to HttpGet() failed,
-    if (handles.session == NULL || handles.connection == NULL || handles.request == NULL) {
+    if (!handles.session && !handles.connection && !handles.request) {
         fputws(L"ReadHttpResponseEx failed! (Errors in previous call to HttpGet)\n", stderr);
         return NULL;
     }
+
+    DWORD dwTotalBytesRead   = 0;
+    bool  bDidFail           = false;
+    char* buffer             = NULL;
 
     // NOLINTBEGIN(readability-isolate-declaration)
     const HINTERNET hSession = handles.session, hConnection = handles.connection,
                     hRequest = handles.request; // unpack the handles for convenience
                                                 // NOLINTEND(readability-isolate-declaration)
 
-    // calling malloc first and then calling realloc in a do while loop is terribly inefficient for a simple app sending a single GET request.
-    // we'll malloc all the needed memory beforehand and use a moving pointer to keep track of the
-    // last write offset, so the next write can start from where the last write terminated
-
     const BOOL bIsReceived   = WinHttpReceiveResponse(hRequest, NULL);
     if (!bIsReceived) {
         fwprintf_s(stderr, L"Error %lu in WinHttpReceiveResponse.\n", GetLastError());
-        return NULL;
+        bDidFail = true;
+        goto PREMATURE_RETURN;
     }
 
-    char* const restrict buffer = malloc(HTTP_RESPONSE_SIZE);
+    // calling malloc first and then calling realloc in a do while loop is terribly inefficient for a simple app sending a single GET request.
+    // we'll malloc all the needed memory beforehand and use a moving pointer to keep track of the
+    // last write offset, so the next write can start from where the last write terminated
+    buffer = malloc(HTTP_RESPONSE_SIZE);
     if (!buffer) {
         fputws(L"Memory allocation error in ReadHttpResponseEx!\n", stderr);
-        return NULL;
+        bDidFail = true;
+        goto PREMATURE_RETURN;
     }
     memset(buffer, 0U, HTTP_RESPONSE_SIZE); // zero out the buffer.
 
-    DWORD dwTotalBytesRead = 0;
     WinHttpReadDataEx(hRequest, buffer, HTTP_RESPONSE_SIZE, &dwTotalBytesRead, WINHTTP_READ_DATA_EX_FLAG_FILL_BUFFER, 0, NULL);
 
+PREMATURE_RETURN:
     // using regular CloseHandle() to close HINTERNET handles will (did) crash the debug session.
     WinHttpCloseHandle(hSession);
     WinHttpCloseHandle(hConnection);
     WinHttpCloseHandle(hRequest);
 
     *response_size = dwTotalBytesRead;
-    return buffer;
+    return bDidFail ? NULL : buffer;
 }

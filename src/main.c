@@ -18,7 +18,7 @@ int wmain(void) {
     const hint3_t handles                 = HttpGet(SERVER, ACCESS_POINT);
 
     // ReadHttpResponse will handle if handles are NULLs, no need for external error handling here.
-    char* const restrict html_text        = ReadHttpResponseEx(handles, &response_size);
+    char* const restrict html_text        = ReadHttpResponse(handles, &response_size);
 #endif
 
     // LocateStableReleasesDiv will handle NULL returns from ReadHttpResponse internally,
@@ -32,12 +32,9 @@ int wmain(void) {
 
     if (!stable.begin && !stable.end) {
         fputws(L"Error: Call to LocateStableReleasesDiv failed!\n", stderr);
-        Serialize(html_text, response_size, L"./response.gzip");
+        // Serialize(html_text, response_size, L"./response.gzip");
         goto CLEANUP;
     }
-
-    // zero out the buffer downstream of the end of stable releases (i.e pre releases)
-    // memset(html_text + stable.end, 0U, response_size - stable.end);
 
     const results_t parsed = ParseStableReleases(html_text + stable.begin, stable.end - stable.begin);
 
