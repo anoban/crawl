@@ -1,5 +1,7 @@
 #include <pyreleases.h>
 
+// DO NOT MIX WININET AND WINHTTP FUNCTIONS, THEY DO NOT WORK IN HARMONY
+
 // a convenient wrapper around WinHttp functions.
 // allows to send a GET request and receive the response in one function call without having to deal with the cascade of WinHttp callbacks.
 hint3_t HttpGet(_In_ const wchar_t* const restrict pwszServer, _In_ const wchar_t* const restrict pwszAccessPoint) {
@@ -27,12 +29,13 @@ hint3_t HttpGet(_In_ const wchar_t* const restrict pwszServer, _In_ const wchar_
     // I'm opting for the first option :p
     // https://learn.microsoft.com/en-us/windows/win32/wininet/content-encoding
     const BOOL bEnableDecoding   = TRUE;
-    // DO NOT MIX WININET AND WINHTTP FUNCTIONS, THEY DO NOT WORK IN HARMONY
+    // WINHTTP_OPTION_DECOMPRESSION and WINHTTP_DECOMPRESSION_FLAG_ALL need to be set using separate calls to WinHttpSetOption
+    // combining the two flags with bitwise or in a single call to WinHttpSetOption won't (didn't) work!
     BOOL       bSetWinHttpDecode = WinHttpSetOption(hSession, WINHTTP_OPTION_DECOMPRESSION, &bEnableDecoding, sizeof(BOOL));
     bSetWinHttpDecode            = WinHttpSetOption(hSession, WINHTTP_DECOMPRESSION_FLAG_ALL, &bEnableDecoding, sizeof(BOOL));
 
     if (!bSetWinHttpDecode) {
-        fwprintf_s(stderr, L"Error %lu in the InternetSetOptionW, DEFLATE/gzip decompression request failed!\n", GetLastError());
+        fwprintf_s(stderr, L"Error %lu in the WinHttpSetOption, DEFLATE/gzip decompression request failed!\n", GetLastError());
         goto CLOSE_SESSION_HANDLE;
     }
 
