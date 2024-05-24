@@ -11,6 +11,7 @@
 #define N_PYTHON_RELEASES     100LLU
 #define DOWNLOAD_URL_LENGTH   150LLU
 #define VERSION_STRING_LENGTH 40LLU
+#define EXECUTION_TIMEOUT     100 // millisecs
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -22,61 +23,61 @@
 
 #pragma comment(lib, "Winhttp.lib")
 
-typedef struct {
-        char version[VERSION_STRING_LENGTH];    // version information
-        char download_url[DOWNLOAD_URL_LENGTH]; // download URL for amd64 releases
-} python_t;
+typedef struct PYTHON_tag {
+        CHAR szVersion[VERSION_STRING_LENGTH];   // version information
+        CHAR szDownloadUrl[DOWNLOAD_URL_LENGTH]; // download URL for amd64 releases
+} PYTHON;
 
-typedef struct {
-        HINTERNET session;    // session handle
-        HINTERNET connection; // connection handle
-        HINTERNET request;    // request handle
-} hint3_t;
+typedef struct HINT3_tag {
+        HINTERNET hSession;    // session handle
+        HINTERNET hConnection; // connection handle
+        HINTERNET hRequest;    // request handle
+} HINT3;
 
-typedef struct {
-        python_t* begin;    // pointer to the head of a heap allocated array of python_ts.s
-        uint64_t  capacity; // number of python_ts the heap allocated array can hold
-        uint64_t  count;    // number of parsed python_t structs in the array
-} results_t;
+typedef struct RESULTS_tag {
+        PYTHON* begin;      // pointer to the head of a heap allocated array of python_ts.s
+        DWORD   dwCapacity; // number of python_ts the heap allocated array can hold
+        DWORD   dwCount;    // number of parsed PYTHON structs in the array
+} RESULTS;
 
-typedef struct {
-        uint64_t begin;
-        uint64_t end;
-} range_t;
+typedef struct RANGE_tag {
+        DWORD dwBegin;
+        DWORD dwEnd;
+} RANGE;
 
 // Enables printing coloured outputs to console. May be unnecessary as Windows console by default seems to be sensitive to VTEs without manually enabling it.
-bool ActivateVirtualTerminalEscapes(void);
+BOOL ActivateVirtualTerminalEscapes(VOID);
 
 // A convenient wrapper around WinHttp functions that allows to send a GET request and receive the response in one function call without having to deal with the cascade of WinHttp callbacks.
 // Can handle gzip or DEFLATE compressed responses internally!
-hint3_t HttpGet(_In_ const wchar_t* const restrict pwszServer, _In_ const wchar_t* const restrict pwszAccessPoint);
+HINT3 HttpGet(_In_ LPCWSTR const restrict pwszServer, _In_ LPCWSTR const restrict pwszAccessPoint);
 
 // Reads in the HTTP response content as a char buffer (automatic decompression will take place if the response is gzip or DEFLATE compressed)
-char* ReadHttpResponse(_In_ const hint3_t handles, _Inout_ uint64_t* const restrict response_size);
+PBYTE ReadHttpResponse(_In_ const HINT3 hi3Handles, _Inout_ PDWORD const restrict pdwRespSize);
 
 // A variant of ReadHttpResponse that uses WinHttpReadDataEx internally to retrieve the whole content of the response at once unlike ReadHttpResponse which combines WinHttpQueryDataAvailable and WinHttpReadData to retrieve the contents in chunks, iteratively.
-char* ReadHttpResponseEx(_In_ const hint3_t handles, _Inout_ uint64_t* const restrict response_size);
+PBYTE ReadHttpResponseEx(_In_ const HINT3 hi3Handles, _Inout_ PDWORD const restrict pdwRespSize);
 
 // Finds the start and end of the HTML div containing stable releases
-range_t LocateStableReleasesDiv(_In_ const char* const restrict html, _In_ const uint64_t size);
+RANGE LocateStableReleasesDiv(_In_ PCSTR const restrict pcszHtml, _In_ const DWORD dwSize);
 
 // Extracts information of URLs and versions from the input string buffer, caller is obliged to free the memory allocated in return.begin.
-results_t ParseStableReleases(_In_ const char* const restrict html, _In_ const uint64_t size);
+RESULTS ParseStableReleases(_In_ PCSTR const restrict pcszHtml, _In_ const DWORD dwSize);
 
 // Coloured console outputs of the deserialized structs.
-void PrintReleases(_In_ const results_t results, _In_ const char* const restrict system_python_version);
+VOID PrintReleases(_In_ const RESULTS reResults, _In_ PCSTR const restrict pcszSystemPython);
 
 // Launches python.exe in a separate process, will use the python.exe in PATH in release mode and in debug mode the dummy ./python/x64/Debug/python.exe will be launched, with --version as argument
-bool LaunchPythonExe(void);
+BOOL LaunchPythonExe(VOID);
 
 // Reads and captures the stdout of the launched python.exe, by previous call to LaunchPythonExe.
-bool ReadStdoutPythonExe(_Inout_ char* const restrict buffer, _In_ const DWORD size);
+BOOL ReadStdoutPythonExe(_Inout_ PSTR const restrict pszBuffer, _In_ const DWORD dwSize);
 
 // A wrapper encapsulating LaunchPythonExe and LaunchPythonExe, for convenience.
-bool GetSystemPythonExeVersion(_Inout_ char* const restrict version_buffer, _In_ const uint64_t buffsize);
+BOOL GetSystemPythonExeVersion(_Inout_ PSTR const restrict pszVersion, _In_ const DWORD dwSize);
 
 // Utility function :: read a file from disk into a buffer in read-only mode, caller should take care of (free) the buffer post-use.
-uint8_t* Open(_In_ const wchar_t* const restrict filename, _Inout_ size_t* const restrict size);
+PBYTE Open(_In_ PCWSTR const restrict pcwszFileName, _Inout_ PDWORD const restrict pdwSize);
 
 // Utility function :: serializes a buffer to disk, with overwrite privileges, caller should free the buffer post-serialization.
-bool Serialize(_In_ const uint8_t* const restrict buffer, _In_ const uint32_t size, _In_ const wchar_t* restrict filename);
+BOOL Serialize(_In_ const BYTE* const restrict Buffer, _In_ const DWORD dwSize, _In_ PCWSTR const restrict pcwszFileName);

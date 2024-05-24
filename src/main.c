@@ -5,66 +5,53 @@
 #define __PARSE_TEST__ FALSE // set this to TRUE to test only the parsing logic without meddling with the HTTP callbacks
 // uses a locally stored HTML file for buffer instead of using the server's response
 
-int wmain(void) {
+int wmain(VOID) {
     if (!ActivateVirtualTerminalEscapes())
         fputws(L"Win32 Virtual Terminal Escape sequences are not enabled! Programme output will fall back to black and white!\n", stderr);
 
-    DWORD response_size = 0;
+    DWORD dwRespSize = 0;
 
 #if __PARSE_TEST__ // read in and use the manually downloaded text version of www.python.org/downloads/windows.htm
-    char* const restrict html_text = Open(L"./Python Releases for Windows.txt", &response_size);
+    PSTR const restrict pszHtmlText = Open(L"./Python Releases for Windows.txt", &dwRespSize);
 #else
-    wchar_t       SERVER[BUFF_SIZE]       = L"www.python.org";
-    wchar_t       ACCESS_POINT[BUFF_SIZE] = L"/downloads/windows/";
-    const hint3_t handles                 = HttpGet(SERVER, ACCESS_POINT);
+    WCHAR       pwszServer[BUFF_SIZE]      = L"www.python.org";
+    WCHAR       pwszAccessPoint[BUFF_SIZE] = L"/downloads/windows/";
+    const HINT3 hi3Handles                 = HttpGet(pwszServer, pwszAccessPoint);
 
     // ReadHttpResponse or ReadHttpResponseEx will handle if handles are NULLs, no need for external error handling here.
-    char* const restrict html_text        = ReadHttpResponseEx(handles, &response_size);
+    const BYTE* const restrict pszHtmlText = ReadHttpResponseEx(hi3Handles, &dwRespSize);
 #endif
 
     // LocateStableReleasesDiv will handle NULL returns from ReadHttpResponse internally,
     // so again no need for main to handle errors explicitly.
     // in case of a NULL input, returned range will be {0, 0}.
-    const range_t stable = LocateStableReleasesDiv(html_text, HTTP_RESPONSE_SIZE); // works correctly :)
+    const RANGE rStableReleases = LocateStableReleasesDiv(pszHtmlText, HTTP_RESPONSE_SIZE); // works correctly :)
 
-    // #if defined(DEBUG) || defined(_DEBUG)
-    //     wprintf_s(L"Response size :: %lu bytes. Stable releases :: {%6llu - %6llu}\n", response_size, stable.begin, stable.end);
-    // #endif
-
-    if (!stable.begin && !stable.end) {
+    if (!rStableReleases.dwBegin && !rStableReleases.dwEnd) {
         fputws(L"Error: Call to LocateStableReleasesDiv failed!\n", stderr);
-        // Serialize(html_text, response_size, L"./response.gzip");
+        // Serialize(pszHtmlText, response_size, L"./response.gzip");
         goto CLEANUP;
     }
 
-    const results_t parsed = ParseStableReleases(html_text + stable.begin, stable.end - stable.begin);
+    const RESULTS reParsed = ParseStableReleases(pszHtmlText + rStableReleases.dwBegin, rStableReleases.dwEnd - rStableReleases.dwBegin);
 
     // may happen due to malloc failures or invalid inputs.
-    if (!parsed.begin) {
+    if (!reParsed.begin) {
         fputws(L"Error: Call to ParseStableReleases failed!\n", stderr);
         goto CLEANUP;
     }
 
-    char system_python[BUFF_SIZE] = { 0 };
-    if (!GetSystemPythonExeVersion(system_python, BUFF_SIZE)) fputws(L"Error: Call to GetSystemPythonVersion failed!", stderr);
+    CHAR pszSystemPython[BUFF_SIZE] = { 0 };
+    if (!GetSystemPythonExeVersion(pszSystemPython, BUFF_SIZE)) fputws(L"Error: Call to GetSystemPythonVersion failed!\n", stderr);
 
-    // #if (defined(DEBUG) || defined(_DEBUG)) && defined(__PARSE_TEST__)
-    //     wprintf_s(
-    //         L"%llu python releases have been deserialized.\n"
-    //         L"Installed python version is %S\n",
-    //         parsed.count,
-    //         system_python
-    //     );
-    // #endif
+    // PrintReleases will handle empty instances of pszSystemPython internally.
+    PrintReleases(reParsed, pszSystemPython);
 
-    // PrintReleases will handle empty instances of system_python internally.
-    PrintReleases(parsed, system_python);
-
-    free(html_text);
-    free(parsed.begin);
+    free(pszHtmlText);
+    free(reParsed.begin);
     return EXIT_SUCCESS;
 
 CLEANUP:
-    free(html_text);
+    free(pszHtmlText);
     return EXIT_FAILURE;
 }

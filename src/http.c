@@ -1,6 +1,6 @@
 #include <pyreleases.h>
 
-hint3_t HttpGet(_In_ const wchar_t* const restrict pwszServer, _In_ const wchar_t* const restrict pwszAccessPoint) {
+HINT3 HttpGet(_In_ LPCWSTR const restrict pwszServer, _In_ LPCWSTR const restrict pwszAccessPoint) {
     // WinHttpOpen returns a valid session handle if successful, or NULL otherwise.
     // first of the WinHTTP functions called by an application.
     // initializes internal WinHTTP data structures and prepares for future calls from the application.
@@ -72,8 +72,8 @@ hint3_t HttpGet(_In_ const wchar_t* const restrict pwszServer, _In_ const wchar_
         goto CLOSE_CONNECTION_HANDLE;
     }
 
-    // WinHttpSendRequest sends the specified request to the HTTP server and returns true if successful, or false otherwise.
-    const BOOL bStatus = WinHttpSendRequest(
+    // WinHttpSendRequest sends the specified request to the HTTP server and returns TRUE if successful, or FALSE otherwise.
+    const BOOL bSentStatus = WinHttpSendRequest(
         hRequest,
         WINHTTP_NO_ADDITIONAL_HEADERS, // pointer to a string that contains the additional headers to append to the request.
         0,                             // an unsigned long integer value that contains the length, in characters, of the additional headers.
@@ -84,13 +84,13 @@ hint3_t HttpGet(_In_ const wchar_t* const restrict pwszServer, _In_ const wchar_
     ); // a pointer to a pointer-sized variable that contains an application-defined value that is passed, with the request handle, to
         // any callback functions.
 
-    if (!bStatus) {
+    if (!bSentStatus) {
         fwprintf_s(stderr, L"Error %lu in the WinHttpSendRequest.\n", GetLastError());
         goto CLOSE_REQUEST_HANDLE;
     }
 
     // these 3 handles need to be closed by the caller.
-    return (hint3_t) { .session = hSession, .connection = hConnection, .request = hRequest };
+    return (HINT3) { .hSession = hSession, .hConnection = hConnection, .hRequest = hRequest };
 
 // cleanup
 CLOSE_REQUEST_HANDLE:
@@ -100,42 +100,42 @@ CLOSE_CONNECTION_HANDLE:
 CLOSE_SESSION_HANDLE:
     WinHttpCloseHandle(hSession);
 PREMATURE_RETURN:
-    return (hint3_t) { .session = NULL, .connection = NULL, .request = NULL };
+    return (HINT3) { .hSession = NULL, .hConnection = NULL, .hRequest = NULL };
 }
 
-char* ReadHttpResponse(_In_ const hint3_t handles, _Inout_ uint64_t* const restrict response_size) {
+PBYTE ReadHttpResponse(_In_ const HINT3 hi3Handles, _Inout_ PDWORD const restrict pdwRespSize) {
     // if the call to HttpGet() failed,
-    if (!handles.session && !handles.connection && !handles.request) {
+    if (!hi3Handles.hSession && !hi3Handles.hConnection && !hi3Handles.hRequest) {
         fputws(L"ReadHttpResponse failed! (Errors in previous call to HttpGet)\n", stderr);
         return NULL;
     }
 
     DWORD dwTotalBytesRead = 0, dwBytesCurrentQuery = 0, dwBytesReadCurrentQuery = 0; // NOLINT(readability-isolate-declaration)
-    bool  bDidFail           = false;
-    char* buffer             = NULL;
+    BOOL  bDidFail           = FALSE;
+    PBYTE Buffer             = NULL;
 
     // NOLINTBEGIN(readability-isolate-declaration)
-    const HINTERNET hSession = handles.session, hConnection = handles.connection,
-                    hRequest = handles.request; // unpack the handles for convenience
+    const HINTERNET hSession = hi3Handles.hSession, hConnection = hi3Handles.hConnection,
+                    hRequest = hi3Handles.hRequest; // unpack the handles for convenience
     // NOLINTEND(readability-isolate-declaration)
 
     const BOOL bIsReceived   = WinHttpReceiveResponse(hRequest, NULL);
     if (!bIsReceived) {
         fwprintf_s(stderr, L"Error %lu in WinHttpReceiveResponse.\n", GetLastError());
-        bDidFail = true;
+        bDidFail = TRUE;
         goto PREMATURE_RETURN;
     }
 
     // calling malloc first and then calling realloc in a do while loop is terribly inefficient for a simple app sending a single GET request.
     // we'll malloc all the needed memory beforehand and use a moving pointer to keep track of the
     // last write offset, so the next write can start from where the last write terminated
-    buffer = malloc(HTTP_RESPONSE_SIZE);
-    if (!buffer) {
+    Buffer = malloc(HTTP_RESPONSE_SIZE);
+    if (!Buffer) {
         fputws(L"Memory allocation error in ReadHttpResponse!\n", stderr);
-        bDidFail = true;
+        bDidFail = TRUE;
         goto PREMATURE_RETURN;
     }
-    memset(buffer, 0U, HTTP_RESPONSE_SIZE); // zero out the buffer.
+    memset(Buffer, 0U, HTTP_RESPONSE_SIZE); // zero out the buffer.
 
     do {
         // for every iteration, zero these counters since these are specific to each query.
@@ -148,7 +148,7 @@ char* ReadHttpResponse(_In_ const hint3_t handles, _Inout_ uint64_t* const restr
 
         if (!dwBytesCurrentQuery) break; // if there aren't any more bytes to read,
 
-        if (!WinHttpReadData(hRequest, buffer + dwTotalBytesRead, dwBytesCurrentQuery, &dwBytesReadCurrentQuery)) {
+        if (!WinHttpReadData(hRequest, Buffer + dwTotalBytesRead, dwBytesCurrentQuery, &dwBytesReadCurrentQuery)) {
             fwprintf_s(stderr, L"Error %lu in WinHttpReadData.\n", GetLastError());
             break;
         }
@@ -171,51 +171,52 @@ PREMATURE_RETURN:
     WinHttpCloseHandle(hSession);
     WinHttpCloseHandle(hConnection);
     WinHttpCloseHandle(hRequest);
-    *response_size = dwTotalBytesRead;
-    return bDidFail ? NULL : buffer;
+    *pdwRespSize = dwTotalBytesRead;
+    return bDidFail ? NULL : Buffer;
 }
 
-char* ReadHttpResponseEx(_In_ const hint3_t handles, _Inout_ uint64_t* const restrict response_size) {
-    if (!handles.session && !handles.connection && !handles.request) {
+// _In_ HINT3 hi3Handles, _Inout_ PDWORD pdwRespSize
+PBYTE ReadHttpResponseEx(_In_ const HINT3 hi3Handles, _Inout_ PDWORD const restrict pdwRespSize) {
+    if (!hi3Handles.hSession && !hi3Handles.hConnection && !hi3Handles.hRequest) {
         fputws(L"ReadHttpResponseEx failed! (Errors in previous call to HttpGet)\n", stderr);
         return NULL;
     }
 
     DWORD dwTotalBytesRead   = 0;
-    bool  bDidFail           = false;
-    char* buffer             = NULL;
+    BOOL  bDidFail           = FALSE;
+    PBYTE Buffer             = NULL;
 
     // NOLINTBEGIN(readability-isolate-declaration)
-    const HINTERNET hSession = handles.session, hConnection = handles.connection,
-                    hRequest = handles.request; // unpack the handles for convenience
-                                                // NOLINTEND(readability-isolate-declaration)
+    const HINTERNET hSession = hi3Handles.hSession, hConnection = hi3Handles.hConnection,
+                    hRequest = hi3Handles.hRequest; // unpack the handles for convenience
+                                                    // NOLINTEND(readability-isolate-declaration)
 
     const BOOL bIsReceived   = WinHttpReceiveResponse(hRequest, NULL);
     if (!bIsReceived) {
         fwprintf_s(stderr, L"Error %lu in WinHttpReceiveResponse.\n", GetLastError());
-        bDidFail = true;
+        bDidFail = TRUE;
         goto PREMATURE_RETURN;
     }
 
     // calling malloc first and then calling realloc in a do while loop is terribly inefficient for a simple app sending a single GET request.
     // we'll malloc all the needed memory beforehand and use a moving pointer to keep track of the
     // last write offset, so the next write can start from where the last write terminated
-    buffer = malloc(HTTP_RESPONSE_SIZE);
-    if (!buffer) {
+    Buffer = malloc(HTTP_RESPONSE_SIZE);
+    if (!Buffer) {
         fputws(L"Memory allocation error in ReadHttpResponseEx!\n", stderr);
-        bDidFail = true;
+        bDidFail = TRUE;
         goto PREMATURE_RETURN;
     }
-    memset(buffer, 0U, HTTP_RESPONSE_SIZE); // zero out the buffer.
+    memset(Buffer, 0U, HTTP_RESPONSE_SIZE); // zero out the buffer.
 
     const DWORD dwReadStatus = // will be 0 if the call succeeded
-        WinHttpReadDataEx(hRequest, buffer, HTTP_RESPONSE_SIZE, &dwTotalBytesRead, WINHTTP_READ_DATA_EX_FLAG_FILL_BUFFER, 0, NULL);
+        WinHttpReadDataEx(hRequest, Buffer, HTTP_RESPONSE_SIZE, &dwTotalBytesRead, WINHTTP_READ_DATA_EX_FLAG_FILL_BUFFER, 0, NULL);
     // WINHTTP_READ_DATA_EX_FLAG_FILL_BUFFER will condition the WinHttpReadDataEx to return only after all the bytes in the response have been collected in the buffer
     // without this we'd have to read the response in chunks using a loop, checking every time for bytes remaining
     if (dwReadStatus) { // dwReadStatus != 0
         fwprintf_s(stderr, L"Error %lu in WinHttpReadDataEx.\n", GetLastError());
-        free(buffer);
-        bDidFail = true;
+        free(Buffer);
+        bDidFail = TRUE;
     }
 
 PREMATURE_RETURN:
@@ -224,6 +225,6 @@ PREMATURE_RETURN:
     WinHttpCloseHandle(hConnection);
     WinHttpCloseHandle(hRequest);
 
-    *response_size = dwTotalBytesRead;
-    return bDidFail ? NULL : buffer;
+    *pdwRespSize = dwTotalBytesRead;
+    return bDidFail ? NULL : Buffer;
 }

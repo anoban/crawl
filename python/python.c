@@ -9,10 +9,10 @@
     #include <time.h>
 
 int wmain(_In_opt_ int argc, _In_opt_ wchar_t* argv[]) {
-    assert(argc == 2);
+    assert(argc == 2); // this project will only build in debug mode, so assert will always work :)
 
     if (!wcsncmp(argv[1], L"--version", 10LLU)) {
-        srand(time(NULL));
+        srand((unsigned) time(NULL));
         const int minor = (rand() % 5) + 1;
         const int major = (rand() % 12) + 1;
 
