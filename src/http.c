@@ -24,11 +24,11 @@ HINT3 HttpGet(_In_ LPCWSTR const restrict pwszServer, _In_ LPCWSTR const restric
     // 2) get the raw compressed bytes and do the decoding by hand
     // I'm opting for the first option :p
     // https://learn.microsoft.com/en-us/windows/win32/wininet/content-encoding
-    const BOOL bEnableDecoding   = TRUE;
+    const BOOL bEnableDecoding    = TRUE;
     // WINHTTP_OPTION_DECOMPRESSION and WINHTTP_DECOMPRESSION_FLAG_ALL need to be set using separate calls to WinHttpSetOption
     // combining the two flags with bitwise or in a single call to WinHttpSetOption won't (didn't) work!
-    BOOL       bSetWinHttpDecode = WinHttpSetOption(hSession, WINHTTP_OPTION_DECOMPRESSION, &bEnableDecoding, sizeof(BOOL));
-    bSetWinHttpDecode            = WinHttpSetOption(hSession, WINHTTP_DECOMPRESSION_FLAG_ALL, &bEnableDecoding, sizeof(BOOL));
+    BOOL       bSetWinHttpDecode  = WinHttpSetOption(hSession, WINHTTP_OPTION_DECOMPRESSION, &bEnableDecoding, sizeof(BOOL));
+    bSetWinHttpDecode            &= WinHttpSetOption(hSession, WINHTTP_DECOMPRESSION_FLAG_ALL, &bEnableDecoding, sizeof(BOOL));
 
     if (!bSetWinHttpDecode) {
         fwprintf_s(stderr, L"Error %lu in the WinHttpSetOption, DEFLATE/gzip decompression request failed!\n", GetLastError());

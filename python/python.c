@@ -20,6 +20,7 @@ int wmain(_In_opt_ int argc, _In_opt_ wchar_t* argv[]) {
         return EXIT_SUCCESS;
     }
 
+    fputws(L"This is a dummy python.exe that can only respond when invoked with a single argument \"--version\"\n", stderr);
     return EXIT_FAILURE;
 }
 
