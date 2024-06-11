@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.7.34024.191
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "py-releases", "py-releases.vcxproj", "{0B489252-F3BD-476B-BBEA-B1D8ECC9A3D6}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "pyreleases", "py-releases.vcxproj", "{0B489252-F3BD-476B-BBEA-B1D8ECC9A3D6}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "python", "python\python.vcxproj", "{F2210B27-66E3-421D-954A-8992D99805FD}"
 EndProject
@@ -13,6 +13,8 @@ Global
 		Debug|x86 = Debug|x86
 		Release|x64 = Release|x64
 		Release|x86 = Release|x86
+		Test|x64 = Test|x64
+		Test|x86 = Test|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{0B489252-F3BD-476B-BBEA-B1D8ECC9A3D6}.Debug|x64.ActiveCfg = Debug|x64
@@ -23,6 +25,10 @@ Global
 		{0B489252-F3BD-476B-BBEA-B1D8ECC9A3D6}.Release|x64.Build.0 = Release|x64
 		{0B489252-F3BD-476B-BBEA-B1D8ECC9A3D6}.Release|x86.ActiveCfg = Release|Win32
 		{0B489252-F3BD-476B-BBEA-B1D8ECC9A3D6}.Release|x86.Build.0 = Release|Win32
+		{0B489252-F3BD-476B-BBEA-B1D8ECC9A3D6}.Test|x64.ActiveCfg = Test|x64
+		{0B489252-F3BD-476B-BBEA-B1D8ECC9A3D6}.Test|x64.Build.0 = Test|x64
+		{0B489252-F3BD-476B-BBEA-B1D8ECC9A3D6}.Test|x86.ActiveCfg = Test|Win32
+		{0B489252-F3BD-476B-BBEA-B1D8ECC9A3D6}.Test|x86.Build.0 = Test|Win32
 		{F2210B27-66E3-421D-954A-8992D99805FD}.Debug|x64.ActiveCfg = Debug|x64
 		{F2210B27-66E3-421D-954A-8992D99805FD}.Debug|x64.Build.0 = Debug|x64
 		{F2210B27-66E3-421D-954A-8992D99805FD}.Debug|x86.ActiveCfg = Debug|Win32
@@ -31,6 +37,10 @@ Global
 		{F2210B27-66E3-421D-954A-8992D99805FD}.Release|x64.Build.0 = Release|x64
 		{F2210B27-66E3-421D-954A-8992D99805FD}.Release|x86.ActiveCfg = Release|Win32
 		{F2210B27-66E3-421D-954A-8992D99805FD}.Release|x86.Build.0 = Release|Win32
+		{F2210B27-66E3-421D-954A-8992D99805FD}.Test|x64.ActiveCfg = Test|x64
+		{F2210B27-66E3-421D-954A-8992D99805FD}.Test|x64.Build.0 = Test|x64
+		{F2210B27-66E3-421D-954A-8992D99805FD}.Test|x86.ActiveCfg = Test|Win32
+		{F2210B27-66E3-421D-954A-8992D99805FD}.Test|x86.Build.0 = Test|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

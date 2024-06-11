@@ -1,31 +1,26 @@
-#include <pyreleases.h>
+#ifndef __TEST__
+    #include <pyreleases.h>
 
-// lookup https://learn.microsoft.com/en-us/previous-versions/hf4y5e3w(v=vs.140)?redirectedfrom=MSDN
-
-#define __PARSE_TEST__ FALSE // set this to TRUE to test only the parsing logic without meddling with the HTTP callbacks
-// uses a locally stored HTML file for buffer instead of using the server's response
+HANDLE64 hProcHeap; // handle to the current process ((HANDLE) -1)
 
 int wmain(VOID) {
     if (!ActivateVirtualTerminalEscapes())
         fputws(L"Win32 Virtual Terminal Escape sequences are not enabled! Programme output will fall back to black and white!\n", stderr);
 
-    DWORD dwRespSize = 0;
+    hProcHeap                              = GetProcessHeap(); // initialize the global process heap handle
+    DWORD dwRespSize                       = 0;
 
-#if __PARSE_TEST__ // read in and use the manually downloaded text version of www.python.org/downloads/windows.htm
-    PSTR const restrict pszHtmlText = Open(L"./Python Releases for Windows.txt", &dwRespSize);
-#else
     WCHAR       pwszServer[BUFF_SIZE]      = L"www.python.org";
     WCHAR       pwszAccessPoint[BUFF_SIZE] = L"/downloads/windows/";
     const HINT3 hi3Handles                 = HttpGet(pwszServer, pwszAccessPoint);
 
     // ReadHttpResponse or ReadHttpResponseEx will handle if handles are NULLs, no need for external error handling here.
     const BYTE* const restrict pszHtmlText = ReadHttpResponseEx(hi3Handles, &dwRespSize);
-#endif
 
     // LocateStableReleasesDiv will handle NULL returns from ReadHttpResponse internally,
     // so again no need for main to handle errors explicitly.
     // in case of a NULL input, returned range will be {0, 0}.
-    const RANGE rStableReleases = LocateStableReleasesDiv(pszHtmlText, HTTP_RESPONSE_SIZE); // works correctly :)
+    const RANGE rStableReleases            = LocateStableReleasesDiv(pszHtmlText, HTTP_RESPONSE_SIZE); // works correctly :)
 
     if (!rStableReleases.dwBegin && !rStableReleases.dwEnd) {
         fputws(L"Error: Call to LocateStableReleasesDiv failed!\n", stderr);
@@ -55,3 +50,5 @@ CLEANUP:
     free(pszHtmlText);
     return EXIT_FAILURE;
 }
+
+#endif // !__TEST__

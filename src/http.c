@@ -1,5 +1,7 @@
 #include <pyreleases.h>
 
+extern HANDLE64 hProcHeap; // defined in main.c & test.c and initialized inside wmain()
+
 HINT3 HttpGet(_In_ LPCWSTR const restrict pwszServer, _In_ LPCWSTR const restrict pwszAccessPoint) {
     // WinHttpOpen returns a valid session handle if successful, or NULL otherwise.
     // first of the WinHTTP functions called by an application.
@@ -129,7 +131,7 @@ PBYTE ReadHttpResponse(_In_ const HINT3 hi3Handles, _Inout_ PDWORD const restric
     // calling malloc first and then calling realloc in a do while loop is terribly inefficient for a simple app sending a single GET request.
     // we'll malloc all the needed memory beforehand and use a moving pointer to keep track of the
     // last write offset, so the next write can start from where the last write terminated
-    Buffer = malloc(HTTP_RESPONSE_SIZE);
+    Buffer = HeapAlloc(hProcHeap, 0, HTTP_RESPONSE_SIZE);
     if (!Buffer) {
         fputws(L"Memory allocation error in ReadHttpResponse!\n", stderr);
         bDidFail = TRUE;

@@ -13,6 +13,7 @@
 #define VERSION_STRING_LENGTH 40LLU
 #define EXECUTION_TIMEOUT     100 // millisecs
 
+#include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -23,24 +24,24 @@
 
 #pragma comment(lib, "Winhttp.lib")
 
-typedef struct PYTHON_tag {
+typedef struct tagPYTHON {
         CHAR szVersion[VERSION_STRING_LENGTH];   // version information
         CHAR szDownloadUrl[DOWNLOAD_URL_LENGTH]; // download URL for amd64 releases
 } PYTHON;
 
-typedef struct HINT3_tag {
+typedef struct tagHINT3 {
         HINTERNET hSession;    // session handle
         HINTERNET hConnection; // connection handle
         HINTERNET hRequest;    // request handle
 } HINT3;
 
-typedef struct RESULTS_tag {
+typedef struct tagRESULTS {
         PYTHON* begin;      // pointer to the head of a heap allocated array of python_ts.s
         DWORD   dwCapacity; // number of python_ts the heap allocated array can hold
         DWORD   dwCount;    // number of parsed PYTHON structs in the array
 } RESULTS;
 
-typedef struct RANGE_tag {
+typedef struct tagRANGE {
         DWORD dwBegin;
         DWORD dwEnd;
 } RANGE;
