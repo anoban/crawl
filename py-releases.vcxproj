@@ -267,7 +267,6 @@
     <ClCompile Include="src\lib.c" />
     <ClCompile Include="src\main.c" />
     <ClCompile Include="src\pipes.c" />
-    <ClCompile Include="src\test.c" />
   </ItemGroup>
   <ItemGroup>
     <None Include="README.md" />

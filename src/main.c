@@ -1,5 +1,4 @@
-#ifndef __TEST__
-    #include <pyreleases.h>
+#include <pyreleases.h>
 
 HANDLE64 hProcHeap; // handle to the current process ((HANDLE) -1)
 
@@ -50,5 +49,3 @@ CLEANUP:
     free(pszHtmlText);
     return EXIT_FAILURE;
 }
-
-#endif // !__TEST__
