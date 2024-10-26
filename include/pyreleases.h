@@ -24,10 +24,10 @@
 
 #pragma comment(lib, "Winhttp.lib")
 
-typedef struct tagPYTHON {
+typedef struct _python {
         CHAR szVersion[VERSION_STRING_LENGTH];   // version information
         CHAR szDownloadUrl[DOWNLOAD_URL_LENGTH]; // download URL for amd64 releases
-} PYTHON;
+} python_t;
 
 typedef struct tagHINT3 {
         HINTERNET hSession;    // session handle
@@ -35,23 +35,23 @@ typedef struct tagHINT3 {
         HINTERNET hRequest;    // request handle
 } HINT3;
 
-typedef struct tagRESULTS {
-        PYTHON* begin;      // pointer to the head of a heap allocated array of python_ts.s
-        DWORD   dwCapacity; // number of python_ts the heap allocated array can hold
-        DWORD   dwCount;    // number of parsed PYTHON structs in the array
-} RESULTS;
+typedef struct _results {
+        python_t*     begin;      // pointer to the head of a heap allocated array of python_ts.s
+        unsigned long dwCapacity; // number of python_ts the heap allocated array can hold
+        unsigned long dwCount;    // number of parsed python_t structs in the array
+} results_t;
 
-typedef struct tagRANGE {
-        DWORD dwBegin;
-        DWORD dwEnd;
-} RANGE;
+typedef struct _range {
+        unsigned long begin;
+        unsigned long end;
+} range_t;
 
 // Enables printing coloured outputs to console. May be unnecessary as Windows console by default seems to be sensitive to VTEs without manually enabling it.
-BOOL ActivateVirtualTerminalEscapes(VOID);
+bool __activate_win32_virtual_terminal_escapes(void);
 
 // A convenient wrapper around WinHttp functions that allows to send a GET request and receive the response in one function call without having to deal with the cascade of WinHttp callbacks.
 // Can handle gzip or DEFLATE compressed responses internally!
-HINT3 HttpGet(_In_ LPCWSTR const restrict pwszServer, _In_ LPCWSTR const restrict pwszAccessPoint);
+HINT3 http_get(_In_ LPCWSTR const restrict pwszServer, _In_ LPCWSTR const restrict pwszAccessPoint);
 
 // Reads in the HTTP response content as a char buffer (automatic decompression will take place if the response is gzip or DEFLATE compressed)
 PBYTE ReadHttpResponse(_In_ const HINT3 hi3Handles, _Inout_ PDWORD const restrict pdwRespSize);
@@ -60,25 +60,25 @@ PBYTE ReadHttpResponse(_In_ const HINT3 hi3Handles, _Inout_ PDWORD const restric
 PBYTE ReadHttpResponseEx(_In_ const HINT3 hi3Handles, _Inout_ PDWORD const restrict pdwRespSize);
 
 // Finds the start and end of the HTML div containing stable releases
-RANGE LocateStableReleasesDiv(_In_ PCSTR const restrict pcszHtml, _In_ const DWORD dwSize);
+range_t LocateStableReleasesDiv(_In_ PCSTR const restrict pcszHtml, _In_ const unsigned long dwSize);
 
 // Extracts information of URLs and versions from the input string buffer, caller is obliged to free the memory allocated in return.begin.
-RESULTS ParseStableReleases(_In_ PCSTR const restrict pcszHtml, _In_ const DWORD dwSize);
+results_t ParseStableReleases(_In_ PCSTR const restrict pcszHtml, _In_ const unsigned long dwSize);
 
 // Coloured console outputs of the deserialized structs.
-VOID PrintReleases(_In_ const RESULTS reResults, _In_ PCSTR const restrict pcszSystemPython);
+void PrintReleases(_In_ const results_t reResults, _In_ PCSTR const restrict pcszSystemPython);
 
 // Launches python.exe in a separate process, will use the python.exe in PATH in release mode and in debug mode the dummy ./python/x64/Debug/python.exe will be launched, with --version as argument
-BOOL LaunchPythonExe(VOID);
+bool LaunchPythonExe(void);
 
 // Reads and captures the stdout of the launched python.exe, by previous call to LaunchPythonExe.
-BOOL ReadStdoutPythonExe(_Inout_ PSTR const restrict pszBuffer, _In_ const DWORD dwSize);
+bool ReadStdoutPythonExe(_Inout_ PSTR const restrict pszBuffer, _In_ const unsigned long dwSize);
 
 // A wrapper encapsulating LaunchPythonExe and LaunchPythonExe, for convenience.
-BOOL GetSystemPythonExeVersion(_Inout_ PSTR const restrict pszVersion, _In_ const DWORD dwSize);
+bool GetSystemPythonExeVersion(_Inout_ PSTR const restrict pszVersion, _In_ const unsigned long dwSize);
 
 // Utility function :: read a file from disk into a buffer in read-only mode, caller should take care of (free) the buffer post-use.
 PBYTE Open(_In_ PCWSTR const restrict pcwszFileName, _Inout_ PDWORD const restrict pdwSize);
 
 // Utility function :: serializes a buffer to disk, with overwrite privileges, caller should free the buffer post-serialization.
-BOOL Serialize(_In_ const BYTE* const restrict Buffer, _In_ const DWORD dwSize, _In_ PCWSTR const restrict pcwszFileName);
+bool Serialize(_In_ const BYTE* const restrict Buffer, _In_ const unsigned long dwSize, _In_ PCWSTR const restrict pcwszFileName);

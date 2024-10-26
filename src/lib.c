@@ -1,36 +1,37 @@
 #include <pyreleases.h>
 
-BOOL ActivateVirtualTerminalEscapes(VOID) {
-    const VOID* const restrict hConsole = GetStdHandle(STD_OUTPUT_HANDLE); // HANDLE is just a typedef to VOID*
-    DWORD dwConsoleMode                 = 0;
+// not needed in modern Win32 applications
+[[deprecated]] bool __activate_win32_virtual_terminal_escapes(void) {
+    const HANDLE64 restrict hConsole = GetStdHandle(STD_OUTPUT_HANDLE); // HANDLE is just a typedef to void*
+    unsigned long dwConsoleMode      = 0;
 
     if (hConsole == INVALID_HANDLE_VALUE) {
         fwprintf_s(stderr, L"Error %lu in GetStdHandle.\n", GetLastError());
-        return FALSE;
+        return false;
     }
 
     if (!GetConsoleMode(hConsole, &dwConsoleMode)) {
         fwprintf_s(stderr, L"Error %lu in GetConsoleMode.\n", GetLastError());
-        return FALSE;
+        return false;
     }
 
     dwConsoleMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
     if (!SetConsoleMode(hConsole, dwConsoleMode)) {
         fwprintf_s(stderr, L"Error %lu in SetConsoleMode.\n", GetLastError());
-        return FALSE;
+        return false;
     }
 
-    return TRUE;
+    return true;
 }
 
 // return the offset of the buffer where the stable releases start.
-RANGE LocateStableReleasesDiv(_In_ PCSTR const restrict pcszHtml, _In_ const DWORD dwSize) {
-    RANGE rDelimiters = { .dwBegin = 0, .dwEnd = 0 };
+range_t LocateStableReleasesDiv(_In_ PCSTR const restrict pcszHtml, _In_ const unsigned long dwSize) {
+    range_t rDelimiters = { .begin = 0, .end = 0 };
     if (!pcszHtml) return rDelimiters;
 
-    DWORD dwStart = 0, dwEnd = 0; // NOLINT(readability-isolate-declaration)
+    unsigned long dwStart = 0, dwEnd = 0; // NOLINT(readability-isolate-declaration)
 
-    for (DWORD i = 0; i < dwSize; ++i) {
+    for (unsigned long i = 0; i < dwSize; ++i) {
         // if the text matches the <h2> tag,
         if (pcszHtml[i] == '<' && pcszHtml[i + 1] == 'h' && pcszHtml[i + 2] == '2' && pcszHtml[i + 3] == '>') {
             // <h2>Stable Releases</h2>
@@ -55,14 +56,14 @@ RANGE LocateStableReleasesDiv(_In_ PCSTR const restrict pcszHtml, _In_ const DWO
         }
     }
 
-    rDelimiters.dwBegin = dwStart;
-    rDelimiters.dwEnd   = dwEnd;
+    rDelimiters.begin = dwStart;
+    rDelimiters.end   = dwEnd;
 
     return rDelimiters;
 }
 
-RESULTS ParseStableReleases(_In_ PCSTR const restrict pcszHtml, _In_ const DWORD dwSize) {
-    RESULTS reResults = { .begin = NULL, .dwCapacity = 0, .dwCount = 0 };
+results_t ParseStableReleases(_In_ PCSTR const restrict pcszHtml, _In_ const unsigned long dwSize) {
+    results_t reResults = { .begin = NULL, .dwCapacity = 0, .dwCount = 0 };
 
     // if the chunk is NULL or size is not greater than 0,
     if (!pcszHtml || dwSize <= 0) {
@@ -70,26 +71,26 @@ RESULTS ParseStableReleases(_In_ PCSTR const restrict pcszHtml, _In_ const DWORD
         return reResults;
     }
 
-    PYTHON* pReleases = malloc(sizeof(PYTHON) * N_PYTHON_RELEASES);
+    python_t* pReleases = malloc(sizeof(python_t) * N_PYTHON_RELEASES);
     if (!pReleases) {
         fputws(L"Error: Memory allocation error in ParseStableReleases!", stderr);
         return reResults;
     }
-    memset(pReleases, 0, sizeof(PYTHON) * N_PYTHON_RELEASES);
+    memset(pReleases, 0, sizeof(python_t) * N_PYTHON_RELEASES);
 
-    DWORD dwLastWrite = 0; // counter to remember last deserialized struct.
+    unsigned long dwLastWrite = 0; // counter to remember last deserialized struct.
 
     // start and end offsets of the version and url strings.
-    DWORD dwUrlBegin = 0, dwUrlEnd = 0, dwVersionBegin = 0, dwVersionEnd = 0; // NOLINT(readability-isolate-declaration)
+    unsigned long dwUrlBegin = 0, dwUrlEnd = 0, dwVersionBegin = 0, dwVersionEnd = 0; // NOLINT(readability-isolate-declaration)
 
     // target template -> <a href="https://www.python.org/ftp/python/3.10.11/python-3.10.11-amd64.exe">
 
     // stores whether the release in an -amd64.exe format release (for x86-64 AMD platforms)
     // needed since other release types like arm64, amd32, zip files have similarly formatted urls that differ only at the end.
-    BOOL bIsAmd64 = FALSE;
+    bool bIsAmd64 = false;
 
     // (size - 100) to prevent reading past the buffer.
-    for (DWORD i = 0; i < dwSize - 100; ++i) {
+    for (unsigned long i = 0; i < dwSize - 100; ++i) {
         // targetting <a ....> tags
         if (pcszHtml[i] == '<' && pcszHtml[i + 1] == 'a') {
             if (pcszHtml[i + 2] == ' ' && pcszHtml[i + 3] == 'h' && pcszHtml[i + 4] == 'r' && pcszHtml[i + 5] == 'e' &&
@@ -128,7 +129,7 @@ RESULTS ParseStableReleases(_In_ PCSTR const restrict pcszHtml, _In_ const DWORD
                         pcszHtml[k + 4] == '4' && pcszHtml[k + 5] == '.' && pcszHtml[k + 6] == 'e' && pcszHtml[k + 7] == 'x' &&
                         pcszHtml[k + 8] == 'e') {
                         dwUrlEnd = k + 9;
-                        bIsAmd64 = TRUE;
+                        bIsAmd64 = true;
                         break;
                     }
                 }
@@ -152,18 +153,18 @@ RESULTS ParseStableReleases(_In_ PCSTR const restrict pcszHtml, _In_ const DWORD
         }
     }
 
-    return (RESULTS) { .begin = pReleases, .dwCapacity = N_PYTHON_RELEASES, .dwCount = dwLastWrite };
+    return (results_t) { .begin = pReleases, .dwCapacity = N_PYTHON_RELEASES, .dwCount = dwLastWrite };
 }
 
-VOID PrintReleases(_In_ const RESULTS reResults, _In_ PCSTR const restrict pcszSystemPython) {
+void PrintReleases(_In_ const results_t reResults, _In_ PCSTR const restrict pcszSystemPython) {
     // if somehow the system cannot find the installed python version, and an empty buffer is returned,
-    const BOOL bIsUnavailable = !pcszSystemPython ? TRUE : FALSE;
+    const bool bIsUnavailable = !pcszSystemPython ? true : false;
 
     // if the buffer is empty don't bother with these...
     if (!bIsUnavailable) {
         CHAR szVersionNumber[BUFF_SIZE] = { 0 };
 
-        for (DWORD i = 7; i < BUFF_SIZE; ++i) {
+        for (unsigned long i = 7; i < BUFF_SIZE; ++i) {
             // ASCII '0' to '9' is 48 to 57 and '.' is 46 ('/' is 47)
             // system_python_version will be in the form of "Python 3.10.5"
             // version number starts after offset 7. (@ 8)
@@ -196,7 +197,7 @@ VOID PrintReleases(_In_ const RESULTS reResults, _In_ PCSTR const restrict pcszS
 }
 
 PBYTE Open(_In_ PCWSTR const restrict pcwszFileName, _Inout_ PDWORD const restrict pdwSize) {
-    DWORD         dwByteCount        = 0;
+    unsigned long dwByteCount        = 0;
     LARGE_INTEGER liFsize            = { .QuadPart = 0 };
     const void* const restrict hFile = CreateFileW(pcwszFileName, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, NULL);
 
@@ -234,22 +235,22 @@ INVALID_HANDLE_ERR:
     return NULL;
 }
 
-BOOL Serialize(_In_ const BYTE* const restrict Buffer, _In_ const DWORD dwSize, _In_ PCWSTR const restrict pcwszFileName) {
-    const VOID* const restrict hfile = CreateFileW(pcwszFileName, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+bool Serialize(_In_ const BYTE* const restrict Buffer, _In_ const unsigned long dwSize, _In_ PCWSTR const restrict pcwszFileName) {
+    const void* const restrict hfile = CreateFileW(pcwszFileName, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 
     if (hfile == INVALID_HANDLE_VALUE) {
         fwprintf_s(stderr, L"Error %lu in CreateFileW\n", GetLastError());
-        return FALSE;
+        return false;
     }
 
-    DWORD dwBytesWritten = 0;
+    unsigned long dwBytesWritten = 0;
     if (!WriteFile(hfile, Buffer, dwSize, &dwBytesWritten, NULL)) {
         fwprintf_s(stderr, L"Error %lu in WriteFile\n", GetLastError());
         CloseHandle(hfile);
-        return FALSE;
+        return false;
     }
 
     CloseHandle(hfile);
 
-    return TRUE;
+    return true;
 }

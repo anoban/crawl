@@ -32,7 +32,7 @@
 static HANDLE hThisProcStdin = NULL, hPythonExeStdout = NULL; // NOLINT
 
 // launches python.exe that uses the previously created pipe as stdin & stderr
-BOOL LaunchPythonExe(VOID) {
+bool LaunchPythonExe(void) {
     PROCESS_INFORMATION piPythonExe = { 0 };
     const STARTUPINFOW  siPythonExe = { .cb         = sizeof(STARTUPINFO),
                                         .hStdError  = hPythonExeStdout,
@@ -60,12 +60,12 @@ BOOL LaunchPythonExe(VOID) {
     // a space, use quoted strings to indicate where the file name ends and the arguments begin; otherwise,
     // the file name is ambiguous.
 
-    const BOOL bProcCreationStatus = CreateProcessW(
+    const bool bProcCreationStatus = CreateProcessW(
         NULL,           // assumes python.exe is in path.
         pwszExecutable, // lpCommandline must be a modifiable string, passing a string literal will raise an access violation exception.
         NULL,
         NULL,
-        TRUE,
+        true,
         CREATE_NO_WINDOW,
         NULL,
         NULL,
@@ -76,11 +76,11 @@ BOOL LaunchPythonExe(VOID) {
     // if invocation failed,
     if (!bProcCreationStatus) {
         fwprintf_s(stderr, L"Error %lu in CreateProcessW.\n", GetLastError());
-        return FALSE;
+        return false;
     }
 
     // wait 100 milliseconds until python.exe finishes.
-    const DWORD dwWaitStatus = WaitForSingleObject(piPythonExe.hProcess, EXECUTION_TIMEOUT);
+    const unsigned long dwWaitStatus = WaitForSingleObject(piPythonExe.hProcess, EXECUTION_TIMEOUT);
     switch (dwWaitStatus) {
         case WAIT_ABANDONED :
             fputws(L"Mutex object was not released by the child thread before the caller thread terminated.\n", stderr);
@@ -97,15 +97,15 @@ BOOL LaunchPythonExe(VOID) {
     CloseHandle(piPythonExe.hProcess);
     CloseHandle(piPythonExe.hThread);
 
-    return TRUE;
+    return true;
 }
 
 // reads python.exe's stdout and writes it to the buffer.
-BOOL ReadStdoutPythonExe(_Inout_ PSTR const restrict pszBuffer, _In_ const DWORD dwSize) {
+bool ReadStdoutPythonExe(_Inout_ PSTR const restrict pszBuffer, _In_ const unsigned long dwSize) {
     // if size(stdout) > size(buffer), write will be truncated
 
-    DWORD      dwReadBytes     = 0;
-    const BOOL bPipeReadStatus = ReadFile(hThisProcStdin, pszBuffer, dwSize, &dwReadBytes, NULL);
+    unsigned long      dwReadBytes     = 0;
+    const bool bPipeReadStatus = ReadFile(hThisProcStdin, pszBuffer, dwSize, &dwReadBytes, NULL);
 
     if (!bPipeReadStatus) fwprintf_s(stderr, L"Error %lu in ReadFile.\n", GetLastError());
 
@@ -114,36 +114,36 @@ BOOL ReadStdoutPythonExe(_Inout_ PSTR const restrict pszBuffer, _In_ const DWORD
     return bPipeReadStatus;
 }
 
-BOOL GetSystemPythonExeVersion(_Inout_ PSTR const restrict pszVersion, _In_ const DWORD dwSize) {
+bool GetSystemPythonExeVersion(_Inout_ PSTR const restrict pszVersion, _In_ const unsigned long dwSize) {
     // a struct to specify the security attributes of the pipes.
-    // .bInheritHandle = TRUE makes pipe handles inheritable.
-    const SECURITY_ATTRIBUTES saSecurityAttrs = { .bInheritHandle       = TRUE,
+    // .bInheritHandle = true makes pipe handles inheritable.
+    const SECURITY_ATTRIBUTES saSecurityAttrs = { .bInheritHandle       = true,
                                                   .lpSecurityDescriptor = NULL,
                                                   .nLength              = sizeof(SECURITY_ATTRIBUTES) };
 
     // creating child process ------> parent process pipe.
     if (!CreatePipe(&hThisProcStdin, &hPythonExeStdout, &saSecurityAttrs, 0)) {
         fwprintf_s(stderr, L"Error %lu in CreatePipe.\n", GetLastError());
-        return FALSE;
+        return false;
     }
 
     // make the parent process's handles uninheritable.
-    if (!SetHandleInformation(hThisProcStdin, HANDLE_FLAG_INHERIT, FALSE)) {
+    if (!SetHandleInformation(hThisProcStdin, HANDLE_FLAG_INHERIT, false)) {
         fwprintf_s(stderr, L"Error %lu in SetHandleInformation.\n", GetLastError());
-        return FALSE;
+        return false;
     }
 
-    const BOOL bLaunchStatus = LaunchPythonExe();
+    const bool bLaunchStatus = LaunchPythonExe();
     if (!bLaunchStatus) {
         fwprintf_s(stderr, L"Error %lu in LaunchPythonExe.\n", GetLastError());
-        return FALSE;
+        return false;
     }
 
-    const BOOL bReadStatus = ReadStdoutPythonExe(pszVersion, dwSize);
+    const bool bReadStatus = ReadStdoutPythonExe(pszVersion, dwSize);
     if (!bReadStatus) {
         fwprintf_s(stderr, L"Error %lu in ReadStdoutPythonExe.\n", GetLastError());
-        return FALSE;
+        return false;
     }
 
-    return TRUE;
+    return true;
 }
