@@ -1,6 +1,7 @@
 #include <project.h>
 
-[[deprecated("not needed in modern Win32 applications")]] bool __cdecl __activate_win32_virtual_terminal_escapes(void) {
+// unlike C++, [[deprecated]] in C23 results in a hard compile time error WOW!
+[[deprecated("unnecessary in modern Win32 applications")]] bool __cdecl __activate_win32_virtual_terminal_escapes(void) {
     const HANDLE64 restrict console_handle = GetStdHandle(STD_OUTPUT_HANDLE); // HANDLE is just a typedef to void*
     unsigned long console_mode             = 0;
 
