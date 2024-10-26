@@ -50,9 +50,9 @@ bool LaunchPythonExe(void) {
     // if this parameter such, an access violation will be raised
 
 #if defined(_DEBUG) || defined(DEBUG)
-    WCHAR pwszExecutable[BUFF_SIZE] = L"./python/x64/Debug/python.exe --version";
+    wchar_t pwszExecutable[BUFF_SIZE] = L"./python/x64/Debug/python.exe --version";
 #else
-    WCHAR pwszExecutable[BUFF_SIZE] = L"python.exe --version";
+    wchar_t pwszExecutable[BUFF_SIZE] = L"python.exe --version";
 #endif
 
     // the lpApplicationName parameter can be NULL. In that case, the module name must be the first white

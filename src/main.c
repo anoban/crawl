@@ -1,33 +1,27 @@
 #include <pyreleases.h>
 
-HANDLE64 hProcHeap; // handle to the current process ((HANDLE) -1)
-
 int wmain(void) {
-    if (!__activate_win32_virtual_terminal_escapes())
-        fputws(L"Win32 Virtual Terminal Escape sequences are not enabled! Programme output will fall back to black and white!\n", stderr);
+    unsigned long response_size          = 0;
+    wchar_t       server[BUFF_SIZE]      = L"www.python.org";
+    wchar_t       accesspoint[BUFF_SIZE] = L"/downloads/windows/";
 
-    hProcHeap                              = GetProcessHeap(); // initialize the global process heap handle
-    unsigned long dwRespSize                       = 0;
+    const hinternet_triple_t handles     = http_get(server, accesspoint);
 
-    WCHAR       pwszServer[BUFF_SIZE]      = L"www.python.org";
-    WCHAR       pwszAccessPoint[BUFF_SIZE] = L"/downloads/windows/";
-    const HINT3 hi3Handles                 = http_get(pwszServer, pwszAccessPoint);
+    // read_http_response or read_http_response_ex will handle if handles are NULLs, no need for external error handling here.
+    const char* const restrict html_text = read_http_response_ex(handles, &response_size);
 
-    // ReadHttpResponse or ReadHttpResponseEx will handle if handles are NULLs, no need for external error handling here.
-    const BYTE* const restrict pszHtmlText = ReadHttpResponseEx(hi3Handles, &dwRespSize);
-
-    // LocateStableReleasesDiv will handle NULL returns from ReadHttpResponse internally,
+    // LocateStableReleasesDiv will handle NULL returns from read_http_response internally,
     // so again no need for main to handle errors explicitly.
     // in case of a NULL input, returned range will be {0, 0}.
-    const range_t rStableReleases            = LocateStableReleasesDiv(pszHtmlText, HTTP_RESPONSE_SIZE); // works correctly :)
+    const range_t stable_releases        = LocateStableReleasesDiv(html_text, HTTP_RESPONSE_SIZE); // works correctly :)
 
-    if (!rStableReleases.begin && !rStableReleases.end) {
+    if (!stable_releases.begin && !stable_releases.end) {
         fputws(L"Error: Call to LocateStableReleasesDiv failed!\n", stderr);
         // Serialize(pszHtmlText, response_size, L"./response.gzip");
         goto CLEANUP;
     }
 
-    const results_t reParsed = ParseStableReleases(pszHtmlText + rStableReleases.begin, rStableReleases.end - rStableReleases.begin);
+    const results_t reParsed = ParseStableReleases(html_text + stable_releases.begin, stable_releases.end - stable_releases.begin);
 
     // may happen due to malloc failures or invalid inputs.
     if (!reParsed.begin) {
@@ -41,11 +35,11 @@ int wmain(void) {
     // PrintReleases will handle empty instances of pszSystemPython internally.
     PrintReleases(reParsed, pszSystemPython);
 
-    free(pszHtmlText);
+    free(html_text);
     free(reParsed.begin);
     return EXIT_SUCCESS;
 
 CLEANUP:
-    free(pszHtmlText);
+    free(html_text);
     return EXIT_FAILURE;
 }

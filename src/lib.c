@@ -63,7 +63,7 @@ range_t LocateStableReleasesDiv(_In_ PCSTR const restrict pcszHtml, _In_ const u
 }
 
 results_t ParseStableReleases(_In_ PCSTR const restrict pcszHtml, _In_ const unsigned long dwSize) {
-    results_t reResults = { .begin = NULL, .dwCapacity = 0, .dwCount = 0 };
+    results_t reResults = { .begin = NULL, .capacity = 0, .count = 0 };
 
     // if the chunk is NULL or size is not greater than 0,
     if (!pcszHtml || dwSize <= 0) {
@@ -143,17 +143,19 @@ results_t ParseStableReleases(_In_ PCSTR const restrict pcszHtml, _In_ const uns
             // #endif
 
             // deserialize the chars representing the release version to the struct's version field.
-            memcpy_s((pReleases[dwLastWrite]).szVersion, VERSION_STRING_LENGTH, pcszHtml + dwVersionBegin, dwVersionEnd - dwVersionBegin);
-            // deserialize the chars representing the release url to the struct's szDownloadUrl field.
-            memcpy_s((pReleases[dwLastWrite]).szDownloadUrl, DOWNLOAD_URL_LENGTH, pcszHtml + dwUrlBegin, dwUrlEnd - dwUrlBegin);
+            memcpy_s(
+                (pReleases[dwLastWrite]).version, PYTHON_VERSION_STRING_LENGTH, pcszHtml + dwVersionBegin, dwVersionEnd - dwVersionBegin
+            );
+            // deserialize the chars representing the release url to the struct's downloadurl field.
+            memcpy_s((pReleases[dwLastWrite]).downloadurl, PYTHON_DOWNLOAD_URL_LENGTH, pcszHtml + dwUrlBegin, dwUrlEnd - dwUrlBegin);
 
             dwLastWrite++; // move the write caret
-            reResults.dwCount++;
+            reResults.count++;
             bIsAmd64 = dwUrlBegin = dwUrlEnd = dwVersionBegin = dwVersionEnd = 0; // reset the flag & offsets.
         }
     }
 
-    return (results_t) { .begin = pReleases, .dwCapacity = N_PYTHON_RELEASES, .dwCount = dwLastWrite };
+    return (results_t) { .begin = pReleases, .capacity = N_PYTHON_RELEASES, .count = dwLastWrite };
 }
 
 void PrintReleases(_In_ const results_t reResults, _In_ PCSTR const restrict pcszSystemPython) {
@@ -177,26 +179,24 @@ void PrintReleases(_In_ const results_t reResults, _In_ PCSTR const restrict pcs
         _putws(L"-----------------------------------------------------------------------------------");
         wprintf_s(L"|\x1b[36m%9s\x1b[m  |\x1b[36m%40s\x1b[m                             |\n", L"Version", L"Download URL");
         _putws(L"-----------------------------------------------------------------------------------");
-        for (uint64_t i = 0; i < reResults.dwCount; ++i)
-            if (!strcmp(szVersionNumber, reResults.begin[i].szVersion)) // to highlight the system Python szVersion
-                wprintf_s(L"|\x1b[35;47;1m   %-7S |  %-66S \x1b[m|\n", reResults.begin[i].szVersion, reResults.begin[i].szDownloadUrl);
+        for (uint64_t i = 0; i < reResults.count; ++i)
+            if (!strcmp(szVersionNumber, reResults.begin[i].version)) // to highlight the system Python version
+                wprintf_s(L"|\x1b[35;47;1m   %-7S |  %-66S \x1b[m|\n", reResults.begin[i].version, reResults.begin[i].downloadurl);
             else
-                wprintf_s(
-                    L"|\x1b[91m   %-7S \x1b[m| \x1b[32m %-66S \x1b[m|\n", reResults.begin[i].szVersion, reResults.begin[i].szDownloadUrl
-                );
+                wprintf_s(L"|\x1b[91m   %-7S \x1b[m| \x1b[32m %-66S \x1b[m|\n", reResults.begin[i].version, reResults.begin[i].downloadurl);
         _putws(L"-----------------------------------------------------------------------------------");
 
     } else { // do not bother with highlighting
         _putws(L"-----------------------------------------------------------------------------------");
         wprintf_s(L"|\x1b[36m%9s\x1b[m  |\x1b[36m%40s\x1b[m                             |\n", L"Version", L"Download URL");
         _putws(L"-----------------------------------------------------------------------------------");
-        for (uint64_t i = 0; i < reResults.dwCount; ++i)
-            wprintf_s(L"|\x1b[91m   %-7S \x1b[m| \x1b[32m %-66S \x1b[m|\n", reResults.begin[i].szVersion, reResults.begin[i].szDownloadUrl);
+        for (uint64_t i = 0; i < reResults.count; ++i)
+            wprintf_s(L"|\x1b[91m   %-7S \x1b[m| \x1b[32m %-66S \x1b[m|\n", reResults.begin[i].version, reResults.begin[i].downloadurl);
         _putws(L"-----------------------------------------------------------------------------------");
     }
 }
 
-PBYTE Open(_In_ PCWSTR const restrict pcwszFileName, _Inout_ PDWORD const restrict pdwSize) {
+unsigned char* Open(_In_ PCWSTR const restrict pcwszFileName, _Inout_ unsigned long* const restrict pdwSize) {
     unsigned long dwByteCount        = 0;
     LARGE_INTEGER liFsize            = { .QuadPart = 0 };
     const void* const restrict hFile = CreateFileW(pcwszFileName, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, NULL);
@@ -211,7 +211,7 @@ PBYTE Open(_In_ PCWSTR const restrict pcwszFileName, _Inout_ PDWORD const restri
         goto GET_FILESIZE_ERR;
     }
 
-    PBYTE const restrict Buffer = malloc(liFsize.QuadPart);
+    unsigned char* const restrict Buffer = malloc(liFsize.QuadPart);
     if (!Buffer) {
         fputws(L"Memory allocation error in Open\n", stderr);
         goto GET_FILESIZE_ERR;
