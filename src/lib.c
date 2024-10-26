@@ -1,4 +1,4 @@
-#include <pyreleases.h>
+#include <project.h>
 
 [[deprecated("not needed in modern Win32 applications")]] bool __activate_win32_virtual_terminal_escapes(void) {
     const HANDLE64 restrict console_handle = GetStdHandle(STD_OUTPUT_HANDLE); // HANDLE is just a typedef to void*

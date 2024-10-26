@@ -1,4 +1,4 @@
-#include <pyreleases.h>
+#include <project.h>
 
 // https://learn.microsoft.com/en-us/windows/win32/procthread/creating-a-child-process-with-redirected-input-and-output?redirectedfrom=MSDN
 // pipes are used in one-way communication between two different processes.
@@ -24,10 +24,10 @@
 // and the read handle for the child process's stdout cannot be inherited.
 
 // here we are only interested in a one-way communication, we just need this application to read python.exe's stdout through the pipe
-static HANDLE this_process_stdin_handle = NULL, python_stdout_handle = NULL; //
+static HANDLE64 this_process_stdin_handle = NULL, python_stdout_handle = NULL; //
 
 // launches python.exe that uses the previously created pipe as stdin & stderr
-bool LaunchPythonExe(void) {
+bool launch_python(void) {
     PROCESS_INFORMATION python_proc_info    = { 0 };
     const STARTUPINFOW  python_startup_info = {
          .cb          = sizeof(STARTUPINFO),
@@ -128,9 +128,9 @@ bool GetSystemPythonExeVersion(_Inout_ PSTR const restrict pszVersion, _In_ cons
         return false;
     }
 
-    const bool bLaunchStatus = LaunchPythonExe();
+    const bool bLaunchStatus = launch_python();
     if (!bLaunchStatus) {
-        fwprintf_s(stderr, L"Error %lu in LaunchPythonExe.\n", GetLastError());
+        fwprintf_s(stderr, L"Error %lu in launch_python.\n", GetLastError());
         return false;
     }
 

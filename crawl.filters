@@ -15,7 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\pyreleases.h">
+    <ClInclude Include="include\project.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

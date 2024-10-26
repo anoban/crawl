@@ -13,10 +13,10 @@ int wmain(_In_opt_ int argc, _In_opt_ wchar_t* argv[]) {
 
     if (!wcsncmp(argv[1], L"--version", 10LLU)) {
         srand((unsigned) time(NULL));
-        const int major = (rand() % 5) + 1;
-        const int minor = (rand() % 13) + 1;
+        const int major = (rand() % 10) + 6;
+        const int minor = (rand() % 14);
 
-        wprintf_s(L"Python 3.%d.%d\n", major, minor);
+        fwprintf_s(stdout, L"Python 3.%d.%d\n", major, minor); // this won't work always :(
         return EXIT_SUCCESS;
     }
 

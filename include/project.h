@@ -13,7 +13,7 @@
 #define N_PYTHON_RELEASES            100LLU
 #define PYTHON_DOWNLOAD_URL_LENGTH   150LLU
 #define PYTHON_VERSION_STRING_LENGTH 40LLU
-#define EXECUTION_TIMEOUT            100 // milliseconds
+#define EXECUTION_TIMEOUT            100LLU // milliseconds
 
 #include <assert.h>
 #include <stdbool.h>
@@ -30,7 +30,7 @@
     #define dbgwprintf_s(...)
 #endif // _DEBUG
 
-#pragma comment(lib, "Winhttp.lib")
+#pragma comment(lib, "Winhttp.lib") // need this for the WinHttp routines
 
 typedef struct _python {
         char version[PYTHON_VERSION_STRING_LENGTH];   // version information
@@ -84,12 +84,12 @@ range_t locate_stable_releases_htmldiv(_In_ const char* const restrict html, _In
 void print(_In_ const results_t results, _In_ const char* const restrict syspyversion);
 
 // Launches python.exe in a separate process, will use the python.exe in PATH in release mode and in debug mode the dummy ./python/x64/Debug/python.exe will be launched, with --version as argument
-bool LaunchPythonExe(void);
+bool launch_python(void);
 
-// Reads and captures the stdout of the launched python.exe, by previous call to LaunchPythonExe.
+// Reads and captures the stdout of the launched python.exe, by previous call to launch_python.
 bool ReadStdoutPythonExe(_Inout_ PSTR const restrict pszBuffer, _In_ const unsigned long dwSize);
 
-// A wrapper encapsulating LaunchPythonExe and LaunchPythonExe, for convenience.
+// A wrapper encapsulating launch_python and launch_python, for convenience.
 bool GetSystemPythonExeVersion(_Inout_ PSTR const restrict pszVersion, _In_ const unsigned long dwSize);
 
 // Utility function :: read a file from disk into a buffer in read-only mode, caller should take care of (free) the buffer post-use.

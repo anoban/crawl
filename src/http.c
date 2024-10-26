@@ -1,4 +1,4 @@
-#include <pyreleases.h>
+#include <project.h>
 
 [[nodiscard("entails expensive http io")]] hinternet_triple_t http_get(
     _In_ const wchar_t* const restrict server, _In_ const wchar_t* const restrict accesspoint
@@ -125,6 +125,7 @@ PREMATURE_RETURN:
 
     // NOLINTNEXTLINE(readability-isolate-declaration) - unpack the handles for convenience
     const HINTERNET session_handle = handles.session, connection_handle = handles.connection, request_handle = handles.request;
+    char* restrict buffer           = NULL;
 
     const bool is_response_received = WinHttpReceiveResponse(request_handle, NULL); // NOLINT(readability-implicit-bool-conversion)
     if (!is_response_received) [[unlikely]] {
@@ -136,7 +137,7 @@ PREMATURE_RETURN:
     // calling malloc first and then calling realloc in a do while loop is terribly inefficient for a simple app sending a single GET request.
     // we'll malloc all the needed memory beforehand and use a moving pointer to keep track of the
     // last write offset, so the next write can start from where the last write terminated
-    char* const restrict buffer = malloc(HTTP_RESPONSE_SIZE);
+    buffer = malloc(HTTP_RESPONSE_SIZE);
     if (!buffer) [[unlikely]] {
         fputws(L"Memory allocation error in read_http_response!\n", stderr);
         is_failure = true;
@@ -188,7 +189,7 @@ PREMATURE_RETURN:
 
     unsigned long total_bytes_read = 0;
     bool          is_failure       = false;
-
+    char* restrict buffer          = NULL;
     // NOLINTNEXTLINE(readability-isolate-declaration) - unpack the handles for convenience
     const HINTERNET session_handle = handles.session, connection_handle = handles.connection, request_handle = handles.request;
 
@@ -202,7 +203,7 @@ PREMATURE_RETURN:
     // calling malloc first and then calling realloc in a do while loop is terribly inefficient for a simple app sending a single GET request.
     // we'll malloc all the needed memory beforehand and use a moving pointer to keep track of the
     // last write offset, so the next write can start from where the last write terminated
-    char* const restrict buffer = malloc(HTTP_RESPONSE_SIZE);
+    buffer = malloc(HTTP_RESPONSE_SIZE);
     if (!buffer) {
         fputws(L"Memory allocation error in read_http_response_ex!\n", stderr);
         is_failure = true;
