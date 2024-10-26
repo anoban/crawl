@@ -1,7 +1,5 @@
 #include <pyreleases.h>
 
-extern HANDLE64 process_heap_handle; // defined in main.c & test.c and initialized inside wmain()
-
 [[nodiscard("entails expensive http io")]] hinternet_triple_t http_get(
     _In_ const wchar_t* const restrict server, _In_ const wchar_t* const restrict accesspoint
 ) {
@@ -112,8 +110,8 @@ PREMATURE_RETURN:
     return (hinternet_triple_t) { .session = NULL, .connection = NULL, .request = NULL };
 }
 
-[[nodiscard("entails expensive http io")]] unsigned char* read_http_response(
-    _In_ const hinternet_triple_t handles, _Inout_ unsigned long* const restrict pdwRespSize
+[[nodiscard("entails expensive http io")]] char* read_http_response(
+    _In_ const hinternet_triple_t handles, _Inout_ unsigned long* const restrict size
 ) {
     // if the call to http_get() failed,
     if (!handles.session || !handles.connection || !handles.request) [[unlikely]] {
@@ -122,9 +120,8 @@ PREMATURE_RETURN:
     }
 
     // NOLINTNEXTLINE(readability-isolate-declaration)
-    unsigned long  total_bytes_read = 0, bytes_in_current_query = 0, bytes_read_from_current_query = 0;
-    bool           is_failure      = false;
-    unsigned char* buffer          = NULL;
+    unsigned long total_bytes_read = 0, bytes_in_current_query = 0, bytes_read_from_current_query = 0;
+    bool          is_failure       = false;
 
     // NOLINTNEXTLINE(readability-isolate-declaration) - unpack the handles for convenience
     const HINTERNET session_handle = handles.session, connection_handle = handles.connection, request_handle = handles.request;
@@ -139,13 +136,12 @@ PREMATURE_RETURN:
     // calling malloc first and then calling realloc in a do while loop is terribly inefficient for a simple app sending a single GET request.
     // we'll malloc all the needed memory beforehand and use a moving pointer to keep track of the
     // last write offset, so the next write can start from where the last write terminated
-    buffer = malloc(HTTP_RESPONSE_SIZE);
+    char* const restrict buffer = malloc(HTTP_RESPONSE_SIZE);
     if (!buffer) [[unlikely]] {
         fputws(L"Memory allocation error in read_http_response!\n", stderr);
         is_failure = true;
         goto PREMATURE_RETURN;
     }
-
     memset(buffer, 0U, HTTP_RESPONSE_SIZE); // zero out the buffer.
 
     do {
@@ -171,10 +167,6 @@ PREMATURE_RETURN:
             break;
         }
 
-#ifdef _DEBUG
-        wprintf_s(L"This query collected %lu bytes from the response\n", bytes_in_current_query);
-#endif // _DEBUG
-
     } while (bytes_in_current_query > 0); // while there's still data in the response,
 
 PREMATURE_RETURN:
@@ -182,12 +174,12 @@ PREMATURE_RETURN:
     WinHttpCloseHandle(session_handle);
     WinHttpCloseHandle(connection_handle);
     WinHttpCloseHandle(request_handle);
-    *pdwRespSize = total_bytes_read;
-    return is_failure ? NULL : buffer;
+    *size = total_bytes_read;
+    return is_failure ? NULL : buffer; // NOLINT(readability-implicit-bool-conversion)
 }
 
 [[nodiscard("entails expensive http io")]] char* read_http_response_ex(
-    _In_ const hinternet_triple_t handles, _Inout_ unsigned long* const restrict response_size
+    _In_ const hinternet_triple_t handles, _Inout_ unsigned long* const restrict size
 ) {
     if (!handles.session || !handles.connection || !handles.request) {
         fputws(L"read_http_response_ex failed! (Errors in previous call to http_get)\n", stderr);
@@ -196,7 +188,6 @@ PREMATURE_RETURN:
 
     unsigned long total_bytes_read = 0;
     bool          is_failure       = false;
-    char*         buffer           = NULL;
 
     // NOLINTNEXTLINE(readability-isolate-declaration) - unpack the handles for convenience
     const HINTERNET session_handle = handles.session, connection_handle = handles.connection, request_handle = handles.request;
@@ -211,7 +202,7 @@ PREMATURE_RETURN:
     // calling malloc first and then calling realloc in a do while loop is terribly inefficient for a simple app sending a single GET request.
     // we'll malloc all the needed memory beforehand and use a moving pointer to keep track of the
     // last write offset, so the next write can start from where the last write terminated
-    buffer = malloc(HTTP_RESPONSE_SIZE);
+    char* const restrict buffer = malloc(HTTP_RESPONSE_SIZE);
     if (!buffer) {
         fputws(L"Memory allocation error in read_http_response_ex!\n", stderr);
         is_failure = true;
@@ -236,6 +227,6 @@ PREMATURE_RETURN:
     WinHttpCloseHandle(connection_handle);
     WinHttpCloseHandle(request_handle);
 
-    *response_size = total_bytes_read;
-    return is_failure ? NULL : buffer;
+    *size = total_bytes_read;
+    return is_failure ? NULL : buffer; // NOLINT(readability-implicit-bool-conversion)
 }

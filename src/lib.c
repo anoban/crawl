@@ -1,22 +1,21 @@
 #include <pyreleases.h>
 
-// not needed in modern Win32 applications
-[[deprecated]] bool __activate_win32_virtual_terminal_escapes(void) {
-    const HANDLE64 restrict hConsole = GetStdHandle(STD_OUTPUT_HANDLE); // HANDLE is just a typedef to void*
-    unsigned long dwConsoleMode      = 0;
+[[deprecated("not needed in modern Win32 applications")]] bool __activate_win32_virtual_terminal_escapes(void) {
+    const HANDLE64 restrict console_handle = GetStdHandle(STD_OUTPUT_HANDLE); // HANDLE is just a typedef to void*
+    unsigned long console_mode             = 0;
 
-    if (hConsole == INVALID_HANDLE_VALUE) {
+    if (console_handle == INVALID_HANDLE_VALUE) {
         fwprintf_s(stderr, L"Error %lu in GetStdHandle.\n", GetLastError());
         return false;
     }
 
-    if (!GetConsoleMode(hConsole, &dwConsoleMode)) {
+    if (!GetConsoleMode(console_handle, &console_mode)) { // capture the current console mode
         fwprintf_s(stderr, L"Error %lu in GetConsoleMode.\n", GetLastError());
         return false;
     }
 
-    dwConsoleMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-    if (!SetConsoleMode(hConsole, dwConsoleMode)) {
+    console_mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;  // enable virtual terminal escape sequences in the terminal
+    if (!SetConsoleMode(console_handle, console_mode)) { // apply it to the current terminal
         fwprintf_s(stderr, L"Error %lu in SetConsoleMode.\n", GetLastError());
         return false;
     }
@@ -25,92 +24,90 @@
 }
 
 // return the offset of the buffer where the stable releases start.
-range_t LocateStableReleasesDiv(_In_ PCSTR const restrict pcszHtml, _In_ const unsigned long dwSize) {
-    range_t rDelimiters = { .begin = 0, .end = 0 };
-    if (!pcszHtml) return rDelimiters;
+range_t locate_stable_releases_htmldiv(_In_ const char* const restrict html, _In_ const unsigned long size) {
+    range_t delimiters = { .begin = 0, .end = 0 };
+    if (!html) return delimiters;
 
-    unsigned long dwStart = 0, dwEnd = 0; // NOLINT(readability-isolate-declaration)
+    unsigned long start = 0, end = 0; // NOLINT(readability-isolate-declaration)
 
-    for (unsigned long i = 0; i < dwSize; ++i) {
+    for (unsigned long i = 0; i < size; ++i) {
         // if the text matches the <h2> tag,
-        if (pcszHtml[i] == '<' && pcszHtml[i + 1] == 'h' && pcszHtml[i + 2] == '2' && pcszHtml[i + 3] == '>') {
+        if (html[i] == '<' && html[i + 1] == 'h' && html[i + 2] == '2' && html[i + 3] == '>') {
             // <h2>Stable Releases</h2>
-            if (dwStart == 0 && pcszHtml[i + 4] == 'S' && pcszHtml[i + 5] == 't' && pcszHtml[i + 6] == 'a' && pcszHtml[i + 7] == 'b' &&
-                pcszHtml[i + 8] == 'l' && pcszHtml[i + 9] == 'e') {
+            if (start == 0 && html[i + 4] == 'S' && html[i + 5] == 't' && html[i + 6] == 'a' && html[i + 7] == 'b' && html[i + 8] == 'l' &&
+                html[i + 9] == 'e') {
                 // the HTML body contains only a single <h2> tag with an inner text that starts with "Stable"
                 // so ignoring the " Releases</h2> part for cycle trimming.
                 // if the start offset has already been found, do not waste time in this body in subsequent
                 // iterations -> short circuiting with the first conditional.
-                dwStart = (i + 24);
+                start = (i + 24);
             }
 
             // <h2>Pre-releases</h2>
-            if (pcszHtml[i + 4] == 'P' && pcszHtml[i + 5] == 'r' && pcszHtml[i + 6] == 'e' && pcszHtml[i + 7] == '-' &&
-                pcszHtml[i + 8] == 'r' && pcszHtml[i + 9] == 'e') {
+            if (html[i + 4] == 'P' && html[i + 5] == 'r' && html[i + 6] == 'e' && html[i + 7] == '-' && html[i + 8] == 'r' &&
+                html[i + 9] == 'e') {
                 // the HTML body contains only a single <h2> tag with an inner text that starts with "Pre"
                 // so ignoring the "leases</h2> part for cycle trimming.
-                dwEnd = (i - 1);
+                end = (i - 1);
                 // if found, break out of the loop.
                 break;
             }
         }
     }
 
-    rDelimiters.begin = dwStart;
-    rDelimiters.end   = dwEnd;
+    delimiters.begin = start;
+    delimiters.end   = end;
 
-    return rDelimiters;
+    return delimiters;
 }
 
-results_t ParseStableReleases(_In_ PCSTR const restrict pcszHtml, _In_ const unsigned long dwSize) {
-    results_t reResults = { .begin = NULL, .capacity = 0, .count = 0 };
+[[nodiscard]] results_t parse_stable_releases(_In_ const char* const restrict html, _In_ const unsigned long size) {
+    results_t results = { .begin = NULL, .capacity = 0, .count = 0 };
 
-    // if the chunk is NULL or size is not greater than 0,
-    if (!pcszHtml || dwSize <= 0) {
-        fputws(L"Error in ParseStableReleases: Possible errors in previous call to LocateStableReleasesDiv!", stderr);
-        return reResults;
+    // if the chunk is NULL or size is 0,
+    if (!html || !size) {
+        fputws(L"Error in " __FUNCTIONW__ " : possible errors in previous call to locate_stable_releases_htmldiv!", stderr);
+        return results;
     }
 
-    python_t* pReleases = malloc(sizeof(python_t) * N_PYTHON_RELEASES);
-    if (!pReleases) {
-        fputws(L"Error: Memory allocation error in ParseStableReleases!", stderr);
-        return reResults;
+    python_t* releases = malloc(sizeof(python_t) * N_PYTHON_RELEASES);
+    if (!releases) [[unlikely]] {
+        fputws(L"Error: memory allocation error inside " __FUNCTIONW__ "\n", stderr);
+        return results;
     }
-    memset(pReleases, 0, sizeof(python_t) * N_PYTHON_RELEASES);
+    memset(releases, 0, sizeof(python_t) * N_PYTHON_RELEASES);
 
-    unsigned long dwLastWrite = 0; // counter to remember last deserialized struct.
+    unsigned long last_write = 0; // counter to remember last deserialized struct.
 
     // start and end offsets of the version and url strings.
-    unsigned long dwUrlBegin = 0, dwUrlEnd = 0, dwVersionBegin = 0, dwVersionEnd = 0; // NOLINT(readability-isolate-declaration)
+    unsigned long url_begin = 0, url_end = 0, version_begin = 0, version_end = 0; // NOLINT(readability-isolate-declaration)
 
     // target template -> <a href="https://www.python.org/ftp/python/3.10.11/python-3.10.11-amd64.exe">
 
     // stores whether the release in an -amd64.exe format release (for x86-64 AMD platforms)
     // needed since other release types like arm64, amd32, zip files have similarly formatted urls that differ only at the end.
-    bool bIsAmd64 = false;
+    bool is_amd64 = false;
 
     // (size - 100) to prevent reading past the buffer.
-    for (unsigned long i = 0; i < dwSize - 100; ++i) {
+    for (unsigned long i = 0; i < size - 100; ++i) {
         // targetting <a ....> tags
-        if (pcszHtml[i] == '<' && pcszHtml[i + 1] == 'a') {
-            if (pcszHtml[i + 2] == ' ' && pcszHtml[i + 3] == 'h' && pcszHtml[i + 4] == 'r' && pcszHtml[i + 5] == 'e' &&
-                pcszHtml[i + 6] == 'f' && pcszHtml[i + 7] == '=' && pcszHtml[i + 8] == '"' && pcszHtml[i + 9] == 'h' &&
-                pcszHtml[i + 10] == 't' && pcszHtml[i + 11] == 't' && pcszHtml[i + 12] == 'p' && pcszHtml[i + 13] == 's' &&
-                pcszHtml[i + 14] == ':' && pcszHtml[i + 15] == '/' && pcszHtml[i + 16] == '/' && pcszHtml[i + 17] == 'w' &&
-                pcszHtml[i + 18] == 'w' && pcszHtml[i + 19] == 'w' && pcszHtml[i + 20] == '.' && pcszHtml[i + 21] == 'p' &&
-                pcszHtml[i + 22] == 'y' && pcszHtml[i + 23] == 't' && pcszHtml[i + 24] == 'h' && pcszHtml[i + 25] == 'o' &&
-                pcszHtml[i + 26] == 'n' && pcszHtml[i + 27] == '.' && pcszHtml[i + 28] == 'o' && pcszHtml[i + 29] == 'r' &&
-                pcszHtml[i + 30] == 'g' && pcszHtml[i + 31] == '/' && pcszHtml[i + 32] == 'f' && pcszHtml[i + 33] == 't' &&
-                pcszHtml[i + 34] == 'p' && pcszHtml[i + 35] == '/' && pcszHtml[i + 36] == 'p' && pcszHtml[i + 37] == 'y' &&
-                pcszHtml[i + 38] == 't' && pcszHtml[i + 39] == 'h' && pcszHtml[i + 40] == 'o' && pcszHtml[i + 41] == 'n' &&
-                pcszHtml[i + 42] == '/') {
+        if (html[i] == '<' && html[i + 1] == 'a') {
+            if (html[i + 2] == ' ' && html[i + 3] == 'h' && html[i + 4] == 'r' && html[i + 5] == 'e' && html[i + 6] == 'f' &&
+                html[i + 7] == '=' && html[i + 8] == '"' && html[i + 9] == 'h' && html[i + 10] == 't' && html[i + 11] == 't' &&
+                html[i + 12] == 'p' && html[i + 13] == 's' && html[i + 14] == ':' && html[i + 15] == '/' && html[i + 16] == '/' &&
+                html[i + 17] == 'w' && html[i + 18] == 'w' && html[i + 19] == 'w' && html[i + 20] == '.' && html[i + 21] == 'p' &&
+                html[i + 22] == 'y' && html[i + 23] == 't' && html[i + 24] == 'h' && html[i + 25] == 'o' && html[i + 26] == 'n' &&
+                html[i + 27] == '.' && html[i + 28] == 'o' && html[i + 29] == 'r' && html[i + 30] == 'g' && html[i + 31] == '/' &&
+                html[i + 32] == 'f' && html[i + 33] == 't' && html[i + 34] == 'p' && html[i + 35] == '/' && html[i + 36] == 'p' &&
+                html[i + 37] == 'y' && html[i + 38] == 't' && html[i + 39] == 'h' && html[i + 40] == 'o' && html[i + 41] == 'n' &&
+                html[i + 42] == '/') {
                 // targetting <a> tags in the form href="https://www.python.org/ftp/python/ ...>
-                dwUrlBegin     = i + 9;  // ...https://www.python.org/ftp/python/.....
-                dwVersionBegin = i + 43; // ...3.10.11/python-3.10.11-amd64.exe.....
+                url_begin     = i + 9;  // ...https://www.python.org/ftp/python/.....
+                version_begin = i + 43; // ...3.10.11/python-3.10.11-amd64.exe.....
 
-                for (unsigned j = dwVersionBegin; j < dwVersionBegin + 15; ++j) { // check 15 chars downstream for the next forward slash
-                    if (pcszHtml[j] == '/') {                                     // ...3.10.11/....
-                        dwVersionEnd = j;
+                for (unsigned j = version_begin; j < version_begin + 15; ++j) { // check 15 chars downstream for the next forward slash
+                    if (html[j] == '/') {                                       // ...3.10.11/....
+                        version_end = j;
                         break;
                     }
                 }
@@ -122,55 +119,50 @@ results_t ParseStableReleases(_In_ PCSTR const restrict pcszHtml, _In_ const uns
                 // (8 + versionend - versionbegin) will help us jump directly to -amd.exe
                 // a stride of 8 bytes to skip over "/python-"
                 // a stride of (versionend - versionbegin) bytes to skip over "3.10.11"
-                for (unsigned k = dwVersionEnd + 8 + dwVersionEnd - dwVersionBegin;
-                     k < dwVersionEnd + 8 + dwVersionEnd - dwVersionBegin + 20;
-                     ++k) { // .....-amd64.exe.....
-                    if (pcszHtml[k] == 'a' && pcszHtml[k + 1] == 'm' && pcszHtml[k + 2] == 'd' && pcszHtml[k + 3] == '6' &&
-                        pcszHtml[k + 4] == '4' && pcszHtml[k + 5] == '.' && pcszHtml[k + 6] == 'e' && pcszHtml[k + 7] == 'x' &&
-                        pcszHtml[k + 8] == 'e') {
-                        dwUrlEnd = k + 9;
-                        bIsAmd64 = true;
+
+                // NOLINTNEXTLINE(readability-identifier-length)
+                for (unsigned k = version_end + 8 + version_end - version_begin; k < version_end + 8 + version_end - version_begin + 20;
+                     ++k) {
+                    // ...-amd64.exe...
+                    if (html[k] == 'a' && html[k + 1] == 'm' && html[k + 2] == 'd' && html[k + 3] == '6' && html[k + 4] == '4' &&
+                        html[k + 5] == '.' && html[k + 6] == 'e' && html[k + 7] == 'x' && html[k + 8] == 'e') {
+                        url_end  = k + 9;
+                        is_amd64 = true;
                         break;
                     }
                 }
             }
 
-            if (!bIsAmd64) continue; // if the release is not an -amd64.exe release,
-
-            // #ifdef _DEBUG
-            //             wprintf_s(L"version :: {%5u, %5u}\n", versionbegin, versionend);
-            //             wprintf_s(L"url :: {%5u, %5u}\n", urlbegin, urlend);
-            // #endif
+            if (!is_amd64) continue; // if the release is not an -amd64.exe release,
 
             // deserialize the chars representing the release version to the struct's version field.
-            memcpy_s(
-                (pReleases[dwLastWrite]).version, PYTHON_VERSION_STRING_LENGTH, pcszHtml + dwVersionBegin, dwVersionEnd - dwVersionBegin
-            );
+            memcpy_s((releases[last_write]).version, PYTHON_VERSION_STRING_LENGTH, html + version_begin, version_end - version_begin);
             // deserialize the chars representing the release url to the struct's downloadurl field.
-            memcpy_s((pReleases[dwLastWrite]).downloadurl, PYTHON_DOWNLOAD_URL_LENGTH, pcszHtml + dwUrlBegin, dwUrlEnd - dwUrlBegin);
+            memcpy_s((releases[last_write]).downloadurl, PYTHON_DOWNLOAD_URL_LENGTH, html + url_begin, url_end - url_begin);
 
-            dwLastWrite++; // move the write caret
-            reResults.count++;
-            bIsAmd64 = dwUrlBegin = dwUrlEnd = dwVersionBegin = dwVersionEnd = 0; // reset the flag & offsets.
+            last_write++; // move the write caret
+            results.count++;
+            // NOLINTNEXTLINE(readability-implicit-bool-conversion) reset the flag & offsets.
+            is_amd64 = url_begin = url_end = version_begin = version_end = 0;
         }
     }
 
-    return (results_t) { .begin = pReleases, .capacity = N_PYTHON_RELEASES, .count = dwLastWrite };
+    return (results_t) { .begin = releases, .capacity = N_PYTHON_RELEASES, .count = last_write };
 }
 
-void PrintReleases(_In_ const results_t reResults, _In_ PCSTR const restrict pcszSystemPython) {
+void print(_In_ const results_t results, _In_ const char* const restrict syspyversion) {
     // if somehow the system cannot find the installed python version, and an empty buffer is returned,
-    const bool bIsUnavailable = !pcszSystemPython ? true : false;
+    const bool is_unavailable = !syspyversion; // NOLINT(readability-implicit-bool-conversion)
 
     // if the buffer is empty don't bother with these...
-    if (!bIsUnavailable) {
-        CHAR szVersionNumber[BUFF_SIZE] = { 0 };
+    if (!is_unavailable) [[unlikely]] {
+        char version_number[BUFF_SIZE] = { 0 };
 
         for (unsigned long i = 7; i < BUFF_SIZE; ++i) {
             // ASCII '0' to '9' is 48 to 57 and '.' is 46 ('/' is 47)
-            // system_python_version will be in the form of "Python 3.10.5"
+            // syspyversion will be in the form of "Python 3.10.5"
             // version number starts after offset 7. (@ 8)
-            if ((pcszSystemPython[i] >= 46) && (pcszSystemPython[i] <= 57)) szVersionNumber[i - 7] = pcszSystemPython[i];
+            if ((syspyversion[i] >= 46) && (syspyversion[i] <= 57)) version_number[i - 7] = syspyversion[i];
             // if any other characters encountered,
             else
                 break;
@@ -179,78 +171,80 @@ void PrintReleases(_In_ const results_t reResults, _In_ PCSTR const restrict pcs
         _putws(L"-----------------------------------------------------------------------------------");
         wprintf_s(L"|\x1b[36m%9s\x1b[m  |\x1b[36m%40s\x1b[m                             |\n", L"Version", L"Download URL");
         _putws(L"-----------------------------------------------------------------------------------");
-        for (uint64_t i = 0; i < reResults.count; ++i)
-            if (!strcmp(szVersionNumber, reResults.begin[i].version)) // to highlight the system Python version
-                wprintf_s(L"|\x1b[35;47;1m   %-7S |  %-66S \x1b[m|\n", reResults.begin[i].version, reResults.begin[i].downloadurl);
+        for (uint64_t i = 0; i < results.count; ++i)
+            if (!strcmp(version_number, results.begin[i].version)) // to highlight the system Python version
+                wprintf_s(L"|\x1b[35;47;1m   %-7S |  %-66S \x1b[m|\n", results.begin[i].version, results.begin[i].downloadurl);
             else
-                wprintf_s(L"|\x1b[91m   %-7S \x1b[m| \x1b[32m %-66S \x1b[m|\n", reResults.begin[i].version, reResults.begin[i].downloadurl);
+                wprintf_s(L"|\x1b[91m   %-7S \x1b[m| \x1b[32m %-66S \x1b[m|\n", results.begin[i].version, results.begin[i].downloadurl);
         _putws(L"-----------------------------------------------------------------------------------");
 
-    } else { // do not bother with highlighting
+    } else { // do not bother with highlighting the installed version
         _putws(L"-----------------------------------------------------------------------------------");
         wprintf_s(L"|\x1b[36m%9s\x1b[m  |\x1b[36m%40s\x1b[m                             |\n", L"Version", L"Download URL");
         _putws(L"-----------------------------------------------------------------------------------");
-        for (uint64_t i = 0; i < reResults.count; ++i)
-            wprintf_s(L"|\x1b[91m   %-7S \x1b[m| \x1b[32m %-66S \x1b[m|\n", reResults.begin[i].version, reResults.begin[i].downloadurl);
+        for (uint64_t i = 0; i < results.count; ++i)
+            wprintf_s(L"|\x1b[91m   %-7S \x1b[m| \x1b[32m %-66S \x1b[m|\n", results.begin[i].version, results.begin[i].downloadurl);
         _putws(L"-----------------------------------------------------------------------------------");
     }
 }
 
-unsigned char* Open(_In_ PCWSTR const restrict pcwszFileName, _Inout_ unsigned long* const restrict pdwSize) {
-    unsigned long dwByteCount        = 0;
-    LARGE_INTEGER liFsize            = { .QuadPart = 0 };
-    const void* const restrict hFile = CreateFileW(pcwszFileName, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, NULL);
+[[nodiscard("entails expensive file io"
+)]] unsigned char* __cdecl __open(_In_ const wchar_t* const restrict filename, _Inout_ unsigned long* const restrict size) {
+    unsigned long bytecount          = 0;
+    LARGE_INTEGER fsize              = { .QuadPart = 0 };
+    const void* const restrict hfile = CreateFileW(filename, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_READONLY, NULL);
 
-    if (hFile == INVALID_HANDLE_VALUE) {
+    if (hfile == INVALID_HANDLE_VALUE) {
         fwprintf_s(stderr, L"Error %lu in CreateFileW\n", GetLastError());
         goto INVALID_HANDLE_ERR;
     }
 
-    if (!GetFileSizeEx(hFile, &liFsize)) {
+    if (!GetFileSizeEx(hfile, &fsize)) {
         fwprintf_s(stderr, L"Error %lu in GetFileSizeEx\n", GetLastError());
         goto GET_FILESIZE_ERR;
     }
 
-    unsigned char* const restrict Buffer = malloc(liFsize.QuadPart);
-    if (!Buffer) {
-        fputws(L"Memory allocation error in Open\n", stderr);
+    unsigned char* const restrict buffer = malloc(fsize.QuadPart);
+    if (!buffer) {
+        fputws(L"Memory allocation error in __open\n", stderr);
         goto GET_FILESIZE_ERR;
     }
 
-    if (!ReadFile(hFile, Buffer, liFsize.QuadPart, &dwByteCount, NULL)) {
+    if (!ReadFile(hfile, buffer, fsize.QuadPart, &bytecount, NULL)) {
         fwprintf_s(stderr, L"Error %lu in ReadFile\n", GetLastError());
         goto READFILE_ERR;
     }
 
-    CloseHandle(hFile);
-    *pdwSize = liFsize.QuadPart;
-    return Buffer;
+    CloseHandle(hfile);
+    *size = fsize.QuadPart;
+    return buffer;
 
 READFILE_ERR:
-    free(Buffer);
+    free(buffer);
 GET_FILESIZE_ERR:
-    CloseHandle(hFile);
+    CloseHandle(hfile);
 INVALID_HANDLE_ERR:
-    *pdwSize = 0;
+    *size = 0;
     return NULL;
 }
 
-bool Serialize(_In_ const BYTE* const restrict Buffer, _In_ const unsigned long dwSize, _In_ PCWSTR const restrict pcwszFileName) {
-    const void* const restrict hfile = CreateFileW(pcwszFileName, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+[[nodiscard("entails expensive file io")]] bool __serialize(
+    _In_ const unsigned char* const restrict buffer, _In_ const unsigned long size, _In_ const wchar_t* const restrict filename
+) {
+    const HANDLE64 restrict hfile = CreateFileW(filename, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    unsigned long nbytes_written  = 0;
 
-    if (hfile == INVALID_HANDLE_VALUE) {
+    if (hfile == INVALID_HANDLE_VALUE) [[unlikely]] {
         fwprintf_s(stderr, L"Error %lu in CreateFileW\n", GetLastError());
         return false;
     }
-
-    unsigned long dwBytesWritten = 0;
-    if (!WriteFile(hfile, Buffer, dwSize, &dwBytesWritten, NULL)) {
+    // flush the buffer to file
+    if (!WriteFile(hfile, buffer, size, &nbytes_written, NULL)) [[unlikely]] {
         fwprintf_s(stderr, L"Error %lu in WriteFile\n", GetLastError());
         CloseHandle(hfile);
         return false;
     }
 
     CloseHandle(hfile);
-
     return true;
 }

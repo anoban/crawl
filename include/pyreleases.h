@@ -1,12 +1,14 @@
 #pragma once
 
-///////////////////////////////////////////////////////////////////////////////
+//---------------------------------------------------------------------------//
+//                                                                           //
 // DO NOT MIX WININET AND WINHTTP FUNCTIONS, THEY DO NOT INTEROPERATE WELL!! //
-///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+//---------------------------------------------------------------------------//
 
 #define WIN32_LEAN_AND_MEAN
 #define WIN32_EXTRA_MEAN
-#define BUFF_SIZE                    (1LLU << 5)
+#define BUFF_SIZE                    (1LLU << 6)
 #define HTTP_RESPONSE_SIZE           2097152LLU // 2 MiB
 #define N_PYTHON_RELEASES            100LLU
 #define PYTHON_DOWNLOAD_URL_LENGTH   150LLU
@@ -21,6 +23,12 @@
 #include <string.h>
 #include <Windows.h>
 #include <winhttp.h>
+
+#ifdef _DEBUG
+    #define dbgwprintf_s(...) fwprintf_s(stderr, __VA_ARGS__)
+#else
+    #define dbgwprintf_s(...)
+#endif // _DEBUG
 
 #pragma comment(lib, "Winhttp.lib")
 
@@ -46,27 +54,34 @@ typedef struct _range {
         unsigned long end;
 } range_t;
 
-// Enables printing coloured outputs to console. May be unnecessary as Windows console by default seems to be sensitive to VTEs without manually enabling it.
-bool __activate_win32_virtual_terminal_escapes(void);
+// enables printing coloured outputs to console. unnecessary as Windows console by default seems to be sensitive to VTE without manually enabling them
+[[deprecated("not needed in modern Win32 applications")]] bool __activate_win32_virtual_terminal_escapes(void);
 
-// A convenient wrapper around WinHttp functions that allows to send a GET request and receive the response in one function call without having to deal with the cascade of WinHttp callbacks.
-// Can handle gzip or DEFLATE compressed responses internally!
-hinternet_triple_t http_get(_In_ LPCWSTR const restrict pwszServer, _In_ LPCWSTR const restrict pwszAccessPoint);
+// a convenient wrapper around WinHttp functions that allows sending a GET request and receiving the response back in one function call without
+// having to deal with the cascade of WinHttp callbacks, can handle gzip or DEFLATE compressed responses internally!
+[[nodiscard("entails expensive http io")]] hinternet_triple_t http_get(
+    _In_ const wchar_t* const restrict server, _In_ const wchar_t* const restrict accesspoint
+);
 
-// Reads in the HTTP response content as a char buffer (automatic decompression will take place if the response is gzip or DEFLATE compressed)
-unsigned char* read_http_response(_In_ const hinternet_triple_t hi3Handles, _Inout_ unsigned long* const restrict pdwRespSize);
+// reads in the HTTP response content as a char buffer (automatic decompression will take place if the response is gzip or DEFLATE compressed)
+[[nodiscard("entails expensive http io")]] char* read_http_response(
+    _In_ const hinternet_triple_t handles, _Inout_ unsigned long* const restrict size
+);
 
-// A variant of read_http_response that uses WinHttpReadDataEx internally to retrieve the whole content of the response at once unlike read_http_response which combines WinHttpQueryDataAvailable and WinHttpReadData to retrieve the contents in chunks, iteratively.
-unsigned char* read_http_response_ex(_In_ const hinternet_triple_t hi3Handles, _Inout_ unsigned long* const restrict pdwRespSize);
+// an advanced variant of read_http_response that uses WinHttpReadDataEx internally to retrieve the whole content of the response at once unlike
+// read_http_response which combines WinHttpQueryDataAvailable and WinHttpReadData to retrieve the contents in chunks, iteratively
+[[nodiscard("entails expensive http io")]] char* read_http_response_ex(
+    _In_ const hinternet_triple_t handles, _Inout_ unsigned long* const restrict size
+);
 
-// Finds the start and end of the HTML div containing stable releases
-range_t LocateStableReleasesDiv(_In_ PCSTR const restrict pcszHtml, _In_ const unsigned long dwSize);
+// finds the start and end of the HTML div containing the stable releases section of the python.org downloads page
+range_t locate_stable_releases_htmldiv(_In_ const char* const restrict html, _In_ const unsigned long size);
 
-// Extracts information of URLs and versions from the input string buffer, caller is obliged to free the memory allocated in return.begin.
-results_t ParseStableReleases(_In_ PCSTR const restrict pcszHtml, _In_ const unsigned long dwSize);
+// extracts information of URLs and versions from the input string buffer, caller is responsible for freeing the memory allocated in return.begin
+[[nodiscard]] results_t parse_stable_releases(_In_ const char* const restrict html, _In_ const unsigned long size);
 
 // Coloured console outputs of the deserialized structs.
-void PrintReleases(_In_ const results_t reResults, _In_ PCSTR const restrict pcszSystemPython);
+void print(_In_ const results_t results, _In_ const char* const restrict syspyversion);
 
 // Launches python.exe in a separate process, will use the python.exe in PATH in release mode and in debug mode the dummy ./python/x64/Debug/python.exe will be launched, with --version as argument
 bool LaunchPythonExe(void);
@@ -78,7 +93,10 @@ bool ReadStdoutPythonExe(_Inout_ PSTR const restrict pszBuffer, _In_ const unsig
 bool GetSystemPythonExeVersion(_Inout_ PSTR const restrict pszVersion, _In_ const unsigned long dwSize);
 
 // Utility function :: read a file from disk into a buffer in read-only mode, caller should take care of (free) the buffer post-use.
-unsigned char* Open(_In_ PCWSTR const restrict pcwszFileName, _Inout_ unsigned long* const restrict pdwSize);
+[[nodiscard("entails expensive file io"
+)]] unsigned char* __cdecl __open(_In_ const wchar_t* const restrict filename, _Inout_ unsigned long* const restrict size);
 
 // Utility function :: serializes a buffer to disk, with overwrite privileges, caller should free the buffer post-serialization.
-bool Serialize(_In_ const BYTE* const restrict Buffer, _In_ const unsigned long dwSize, _In_ PCWSTR const restrict pcwszFileName);
+[[nodiscard("entails expensive file io")]] bool __serialize(
+    _In_ const unsigned char* const restrict buffer, _In_ const unsigned long size, _In_ const wchar_t* const restrict filename
+);
