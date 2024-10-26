@@ -30,7 +30,7 @@ int wmain(void) {
     }
 
     CHAR pszSystemPython[BUFF_SIZE] = { 0 };
-    if (!GetSystemPythonExeVersion(pszSystemPython, BUFF_SIZE)) fputws(L"Error: Call to GetSystemPythonVersion failed!\n", stderr);
+    if (!get_system_python_version(pszSystemPython, BUFF_SIZE)) fputws(L"Error: Call to GetSystemPythonVersion failed!\n", stderr);
 
     // print will handle empty instances of pszSystemPython internally.
     print(reParsed, pszSystemPython);

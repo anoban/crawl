@@ -1,8 +1,7 @@
 #include <project.h>
 
-[[nodiscard("entails expensive http io")]] hinternet_triple_t http_get(
-    _In_ const wchar_t* const restrict server, _In_ const wchar_t* const restrict accesspoint
-) {
+[[nodiscard("entails expensive http io"
+)]] hinternet_triple_t __cdecl http_get(_In_ const wchar_t* const restrict server, _In_ const wchar_t* const restrict accesspoint) {
     // WinHttpOpen returns a valid session handle if successful, or NULL otherwise.
     // first of the WinHTTP functions called by an application.
     // initializes internal WinHTTP data structures and prepares for future calls from the application.
@@ -110,9 +109,8 @@ PREMATURE_RETURN:
     return (hinternet_triple_t) { .session = NULL, .connection = NULL, .request = NULL };
 }
 
-[[nodiscard("entails expensive http io")]] char* read_http_response(
-    _In_ const hinternet_triple_t handles, _Inout_ unsigned long* const restrict size
-) {
+[[nodiscard("entails expensive http io"
+)]] char* __cdecl read_http_response(_In_ const hinternet_triple_t handles, _Inout_ unsigned long* const restrict size) {
     // if the call to http_get() failed,
     if (!handles.session || !handles.connection || !handles.request) [[unlikely]] {
         fputws(L"read_http_response failed! (Errors in previous call to http_get)\n", stderr);
@@ -179,9 +177,8 @@ PREMATURE_RETURN:
     return is_failure ? NULL : buffer; // NOLINT(readability-implicit-bool-conversion)
 }
 
-[[nodiscard("entails expensive http io")]] char* read_http_response_ex(
-    _In_ const hinternet_triple_t handles, _Inout_ unsigned long* const restrict size
-) {
+[[nodiscard("entails expensive http io"
+)]] char* __cdecl read_http_response_ex(_In_ const hinternet_triple_t handles, _Inout_ unsigned long* const restrict size) {
     if (!handles.session || !handles.connection || !handles.request) {
         fputws(L"read_http_response_ex failed! (Errors in previous call to http_get)\n", stderr);
         return NULL;

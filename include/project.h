@@ -55,48 +55,45 @@ typedef struct _range {
 } range_t;
 
 // enables printing coloured outputs to console. unnecessary as Windows console by default seems to be sensitive to VTE without manually enabling them
-[[deprecated("not needed in modern Win32 applications")]] bool __activate_win32_virtual_terminal_escapes(void);
+[[deprecated("not needed in modern Win32 applications")]] bool __cdecl __activate_win32_virtual_terminal_escapes(void);
 
 // a convenient wrapper around WinHttp functions that allows sending a GET request and receiving the response back in one function call without
 // having to deal with the cascade of WinHttp callbacks, can handle gzip or DEFLATE compressed responses internally!
-[[nodiscard("entails expensive http io")]] hinternet_triple_t http_get(
-    _In_ const wchar_t* const restrict server, _In_ const wchar_t* const restrict accesspoint
-);
+[[nodiscard("entails expensive http io"
+)]] hinternet_triple_t __cdecl http_get(_In_ const wchar_t* const restrict server, _In_ const wchar_t* const restrict accesspoint);
 
 // reads in the HTTP response content as a char buffer (automatic decompression will take place if the response is gzip or DEFLATE compressed)
-[[nodiscard("entails expensive http io")]] char* read_http_response(
-    _In_ const hinternet_triple_t handles, _Inout_ unsigned long* const restrict size
-);
+[[nodiscard("entails expensive http io"
+)]] char* __cdecl read_http_response(_In_ const hinternet_triple_t handles, _Inout_ unsigned long* const restrict size);
 
 // an advanced variant of read_http_response that uses WinHttpReadDataEx internally to retrieve the whole content of the response at once unlike
 // read_http_response which combines WinHttpQueryDataAvailable and WinHttpReadData to retrieve the contents in chunks, iteratively
-[[nodiscard("entails expensive http io")]] char* read_http_response_ex(
-    _In_ const hinternet_triple_t handles, _Inout_ unsigned long* const restrict size
-);
+[[nodiscard("entails expensive http io"
+)]] char* __cdecl read_http_response_ex(_In_ const hinternet_triple_t handles, _Inout_ unsigned long* const restrict size);
 
 // finds the start and end of the HTML div containing the stable releases section of the python.org downloads page
-range_t locate_stable_releases_htmldiv(_In_ const char* const restrict html, _In_ const unsigned long size);
+range_t __cdecl locate_stable_releases_htmldiv(_In_ const char* const restrict html, _In_ const unsigned long size);
 
 // extracts information of URLs and versions from the input string buffer, caller is responsible for freeing the memory allocated in return.begin
-[[nodiscard]] results_t parse_stable_releases(_In_ const char* const restrict html, _In_ const unsigned long size);
+[[nodiscard]] results_t __cdecl parse_stable_releases(_In_ const char* const restrict html, _In_ const unsigned long size);
 
 // Coloured console outputs of the deserialized structs.
-void print(_In_ const results_t results, _In_ const char* const restrict syspyversion);
+void __cdecl print(_In_ const results_t results, _In_ const char* const restrict syspyversion);
 
 // Launches python.exe in a separate process, will use the python.exe in PATH in release mode and in debug mode the dummy ./python/x64/Debug/python.exe will be launched, with --version as argument
-bool launch_python(void);
+bool __cdecl launch_python(void);
 
 // Reads and captures the stdout of the launched python.exe, by previous call to launch_python.
-bool ReadStdoutPythonExe(_Inout_ PSTR const restrict pszBuffer, _In_ const unsigned long dwSize);
+bool __cdecl read_stdout_python(_Inout_ char* const restrict buffer, _In_ const unsigned long size);
 
 // A wrapper encapsulating launch_python and launch_python, for convenience.
-bool GetSystemPythonExeVersion(_Inout_ PSTR const restrict pszVersion, _In_ const unsigned long dwSize);
+bool __cdecl get_system_python_version(_Inout_ char* const restrict version, _In_ const unsigned long size);
 
 // Utility function :: read a file from disk into a buffer in read-only mode, caller should take care of (free) the buffer post-use.
 [[nodiscard("entails expensive file io"
 )]] unsigned char* __cdecl __open(_In_ const wchar_t* const restrict filename, _Inout_ unsigned long* const restrict size);
 
 // Utility function :: serializes a buffer to disk, with overwrite privileges, caller should free the buffer post-serialization.
-[[nodiscard("entails expensive file io")]] bool __serialize(
+[[nodiscard("entails expensive file io")]] bool __cdecl __serialize(
     _In_ const unsigned char* const restrict buffer, _In_ const unsigned long size, _In_ const wchar_t* const restrict filename
 );

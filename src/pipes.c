@@ -27,7 +27,7 @@
 static HANDLE64 this_process_stdin_handle = NULL, python_stdout_handle = NULL; //
 
 // launches python.exe that uses the previously created pipe as stdin & stderr
-bool launch_python(void) {
+bool __cdecl launch_python(void) {
     PROCESS_INFORMATION python_proc_info    = { 0 };
     const STARTUPINFOW  python_startup_info = {
          .cb          = sizeof(STARTUPINFO),
@@ -96,28 +96,23 @@ bool launch_python(void) {
 }
 
 // reads python.exe's stdout and writes it to the buffer.
-bool ReadStdoutPythonExe(_Inout_ PSTR const restrict pszBuffer, _In_ const unsigned long dwSize) {
-    // if size(stdout) > size(buffer), write will be truncated
+bool __cdecl read_stdout_python(_Inout_ char* const restrict buffer, _In_ const unsigned long size) {
+    // if size(stdout) > size, write will be truncated
 
-    unsigned long dwReadBytes     = 0;
-    const bool    bPipeReadStatus = ReadFile(this_process_stdin_handle, pszBuffer, dwSize, &dwReadBytes, NULL);
+    unsigned long nread_bytes = 0;
+    const bool    read_status = ReadFile(this_process_stdin_handle, buffer, size, &nread_bytes, NULL);
 
-    if (!bPipeReadStatus) fwprintf_s(stderr, L"Error %lu in ReadFile.\n", GetLastError());
-
-    // close the child's ends of the pipe.
-    CloseHandle(python_stdout_handle);
-    return bPipeReadStatus;
+    if (!read_status) fwprintf_s(stderr, L"Error %lu in ReadFile.\n", GetLastError());
+    CloseHandle(python_stdout_handle); // close the child's ends of the pipe
+    return read_status;
 }
 
-bool GetSystemPythonExeVersion(_Inout_ PSTR const restrict pszVersion, _In_ const unsigned long dwSize) {
-    // a struct to specify the security attributes of the pipes.
-    // .bInheritHandle = true makes pipe handles inheritable.
-    const SECURITY_ATTRIBUTES saSecurityAttrs = { .bInheritHandle       = true,
-                                                  .lpSecurityDescriptor = NULL,
-                                                  .nLength              = sizeof(SECURITY_ATTRIBUTES) };
+bool __cdecl get_system_python_version(_Inout_ char* const restrict version, _In_ const unsigned long size) {
+    // a struct to specify the security attributes of the pipes, .bInheritHandle = true makes pipe handles inheritable.
+    const SECURITY_ATTRIBUTES sec_attrs = { .bInheritHandle = true, .lpSecurityDescriptor = NULL, .nLength = sizeof(SECURITY_ATTRIBUTES) };
 
     // creating child process ------> parent process pipe.
-    if (!CreatePipe(&this_process_stdin_handle, &python_stdout_handle, &saSecurityAttrs, 0)) {
+    if (!CreatePipe(&this_process_stdin_handle, &python_stdout_handle, &sec_attrs, 0)) {
         fwprintf_s(stderr, L"Error %lu in CreatePipe.\n", GetLastError());
         return false;
     }
@@ -128,17 +123,11 @@ bool GetSystemPythonExeVersion(_Inout_ PSTR const restrict pszVersion, _In_ cons
         return false;
     }
 
-    const bool bLaunchStatus = launch_python();
-    if (!bLaunchStatus) {
-        fwprintf_s(stderr, L"Error %lu in launch_python.\n", GetLastError());
-        return false;
-    }
+    const bool launch_status = launch_python();
+    if (!launch_status) return false; // launch_python will do the error reporting
 
-    const bool bReadStatus = ReadStdoutPythonExe(pszVersion, dwSize);
-    if (!bReadStatus) {
-        fwprintf_s(stderr, L"Error %lu in ReadStdoutPythonExe.\n", GetLastError());
-        return false;
-    }
+    const bool read_status = read_stdout_python(version, size);
+    if (!read_status) return false; // read_stdout_python will do the error reporting
 
     return true;
 }

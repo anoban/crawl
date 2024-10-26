@@ -1,6 +1,6 @@
 #include <project.h>
 
-[[deprecated("not needed in modern Win32 applications")]] bool __activate_win32_virtual_terminal_escapes(void) {
+[[deprecated("not needed in modern Win32 applications")]] bool __cdecl __activate_win32_virtual_terminal_escapes(void) {
     const HANDLE64 restrict console_handle = GetStdHandle(STD_OUTPUT_HANDLE); // HANDLE is just a typedef to void*
     unsigned long console_mode             = 0;
 
@@ -24,7 +24,7 @@
 }
 
 // return the offset of the buffer where the stable releases start.
-range_t locate_stable_releases_htmldiv(_In_ const char* const restrict html, _In_ const unsigned long size) {
+range_t __cdecl locate_stable_releases_htmldiv(_In_ const char* const restrict html, _In_ const unsigned long size) {
     range_t delimiters = { .begin = 0, .end = 0 };
     if (!html) return delimiters;
 
@@ -61,7 +61,7 @@ range_t locate_stable_releases_htmldiv(_In_ const char* const restrict html, _In
     return delimiters;
 }
 
-[[nodiscard]] results_t parse_stable_releases(_In_ const char* const restrict html, _In_ const unsigned long size) {
+[[nodiscard]] results_t __cdecl parse_stable_releases(_In_ const char* const restrict html, _In_ const unsigned long size) {
     results_t results = { .begin = NULL, .capacity = 0, .count = 0 };
 
     // if the chunk is NULL or size is 0,
@@ -150,7 +150,7 @@ range_t locate_stable_releases_htmldiv(_In_ const char* const restrict html, _In
     return (results_t) { .begin = releases, .capacity = N_PYTHON_RELEASES, .count = last_write };
 }
 
-void print(_In_ const results_t results, _In_ const char* const restrict syspyversion) {
+void __cdecl print(_In_ const results_t results, _In_ const char* const restrict syspyversion) {
     // if somehow the system cannot find the installed python version, and an empty buffer is returned,
     const bool is_unavailable = !syspyversion; // NOLINT(readability-implicit-bool-conversion)
 
@@ -228,7 +228,7 @@ INVALID_HANDLE_ERR:
     return NULL;
 }
 
-[[nodiscard("entails expensive file io")]] bool __serialize(
+[[nodiscard("entails expensive file io")]] bool __cdecl __serialize(
     _In_ const unsigned char* const restrict buffer, _In_ const unsigned long size, _In_ const wchar_t* const restrict filename
 ) {
     const HANDLE64 restrict hfile = CreateFileW(filename, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
