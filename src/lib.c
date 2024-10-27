@@ -207,7 +207,11 @@ void __cdecl print(_In_ const results_t results, _In_ const char* const restrict
 
     unsigned char* const restrict buffer = malloc(fsize.QuadPart);
     if (!buffer) {
-        fputws(L"Memory allocation error in __open\n", stderr);
+        fputws(
+            L"Memory allocation error in "__FUNCTIONW__
+            "\n",
+            stderr
+        );
         goto GET_FILESIZE_ERR;
     }
 

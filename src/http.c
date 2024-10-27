@@ -7,7 +7,7 @@
     // initializes internal WinHTTP data structures and prepares for future calls from the application.
     const HINTERNET session_handle = WinHttpOpen(
         // impersonating Firefox to avoid request denials.
-        L"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0", // modified on 22-05-2024
+        L"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0", // updated on 22-05-2024
         WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY,
         WINHTTP_NO_PROXY_NAME,
         WINHTTP_NO_PROXY_BYPASS,
@@ -114,7 +114,7 @@ PREMATURE_RETURN:
   )]] char* __cdecl read_http_response(_In_ const hinternet_triple_t handles, _Inout_ unsigned long* const restrict size) {
     // if the call to http_get() failed,
     if (!handles.session || !handles.connection || !handles.request) [[unlikely]] {
-        fputws(L"read_http_response failed! (Errors in previous call to http_get)\n", stderr);
+        fputws(__FUNCTIONW__ " failed! (Errors in previous call to http_get).\n", stderr);
         return NULL;
     }
 
@@ -138,7 +138,11 @@ PREMATURE_RETURN:
     // last write offset, so the next write can start from where the last write terminated
     buffer = malloc(HTTP_RESPONSE_SIZE);
     if (!buffer) [[unlikely]] {
-        fputws(L"Memory allocation error in read_http_response!\n", stderr);
+        fputws(
+            L"Memory allocation error inside "__FUNCTIONW__
+            "!\n",
+            stderr
+        );
         is_failure = true;
         goto PREMATURE_RETURN;
     }
@@ -181,7 +185,7 @@ PREMATURE_RETURN:
 [[nodiscard("entails expensive http io"
 )]] char* __cdecl read_http_response_ex(_In_ const hinternet_triple_t handles, _Inout_ unsigned long* const restrict size) {
     if (!handles.session || !handles.connection || !handles.request) {
-        fputws(L"read_http_response_ex failed! (Errors in previous call to http_get)\n", stderr);
+        fputws(__FUNCTIONW__ " failed! (Errors in previous call to http_get)\n", stderr);
         return NULL;
     }
 
@@ -203,7 +207,7 @@ PREMATURE_RETURN:
     // last write offset, so the next write can start from where the last write terminated
     buffer = malloc(HTTP_RESPONSE_SIZE);
     if (!buffer) {
-        fputws(L"Memory allocation error in read_http_response_ex!\n", stderr);
+        fputws(L"Memory allocation error in " __FUNCTIONW__ "!\n", stderr);
         is_failure = true;
         goto PREMATURE_RETURN;
     }

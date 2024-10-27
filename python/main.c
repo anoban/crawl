@@ -1,4 +1,4 @@
-// dummy python.exe to test py-releases.exe
+// dummy python.exe to test crawl.exe
 
 #if defined(_DEBUG) || defined(DEBUG) // do not build this project in release mode
 
