@@ -63,8 +63,9 @@ typedef struct _range {
 )]] hinternet_triple_t __cdecl http_get(_In_ const wchar_t* const restrict server, _In_ const wchar_t* const restrict accesspoint);
 
 // reads in the HTTP response content as a char buffer (automatic decompression will take place if the response is gzip or DEFLATE compressed)
-[[nodiscard("entails expensive http io"
-)]] char* __cdecl read_http_response(_In_ const hinternet_triple_t handles, _Inout_ unsigned long* const restrict size);
+[[deprecated("use the more efficient read_http_response_ex"),
+  nodiscard("entails expensive http io"
+  )]] char* __cdecl read_http_response(_In_ const hinternet_triple_t handles, _Inout_ unsigned long* const restrict size);
 
 // an advanced variant of read_http_response that uses WinHttpReadDataEx internally to retrieve the whole content of the response at once unlike
 // read_http_response which combines WinHttpQueryDataAvailable and WinHttpReadData to retrieve the contents in chunks, iteratively
@@ -72,28 +73,28 @@ typedef struct _range {
 )]] char* __cdecl read_http_response_ex(_In_ const hinternet_triple_t handles, _Inout_ unsigned long* const restrict size);
 
 // finds the start and end of the HTML div containing the stable releases section of the python.org downloads page
-range_t __cdecl locate_stable_releases_htmldiv(_In_ const char* const restrict html, _In_ const unsigned long size);
+[[nodiscard]] range_t __cdecl locate_stable_releases_htmldiv(_In_ const char* const restrict html, _In_ const unsigned long size);
 
 // extracts information of URLs and versions from the input string buffer, caller is responsible for freeing the memory allocated in return.begin
 [[nodiscard]] results_t __cdecl parse_stable_releases(_In_ const char* const restrict html, _In_ const unsigned long size);
 
-// Coloured console outputs of the deserialized structs.
+// coloured console outputs of the deserialized structs
 void __cdecl print(_In_ const results_t results, _In_ const char* const restrict syspyversion);
 
-// Launches python.exe in a separate process, will use the python.exe in PATH in release mode and in debug mode the dummy ./python/x64/Debug/python.exe will be launched, with --version as argument
-bool __cdecl launch_python(void);
+// launches python.exe in a separate process, will use the python.exe in PATH in release mode and in debug mode the dummy ./python/bin/Debug/python.exe will be launched, with "--version" as argument
+[[nodiscard]] bool __cdecl launch_python(void);
 
-// Reads and captures the stdout of the launched python.exe, by previous call to launch_python.
-bool __cdecl read_stdout_python(_Inout_ char* const restrict buffer, _In_ const unsigned long size);
+// reads and captures the stdout of the launched python.exe, using a call to launch_python()
+[[nodiscard]] bool __cdecl read_stdout_python(_Inout_ char* const restrict buffer, _In_ const unsigned long size);
 
-// A wrapper encapsulating launch_python and launch_python, for convenience.
-bool __cdecl get_system_python_version(_Inout_ char* const restrict version, _In_ const unsigned long size);
+// a wrapper encapsulating the functionalities of launch_python and read_stdout_python, for convenience
+[[nodiscard]] bool __cdecl get_system_python_version(_Inout_ char* const restrict version, _In_ const unsigned long size);
 
-// Utility function :: read a file from disk into a buffer in read-only mode, caller should take care of (free) the buffer post-use.
+// reads a file from disk into a buffer in read-only mode, caller should take care of (free) the buffer post-use.
 [[nodiscard("entails expensive file io"
 )]] unsigned char* __cdecl __open(_In_ const wchar_t* const restrict filename, _Inout_ unsigned long* const restrict size);
 
-// Utility function :: serializes a buffer to disk, with overwrite privileges, caller should free the buffer post-serialization.
+// serializes a buffer to disk, with overwrite privileges, caller should free the buffer post-serialization.
 [[nodiscard("entails expensive file io")]] bool __cdecl __serialize(
     _In_ const unsigned char* const restrict buffer, _In_ const unsigned long size, _In_ const wchar_t* const restrict filename
 );

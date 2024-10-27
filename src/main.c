@@ -21,22 +21,22 @@ int wmain(void) {
         goto CLEANUP;
     }
 
-    const results_t reParsed = parse_stable_releases(html_text + stable_releases.begin, stable_releases.end - stable_releases.begin);
+    const results_t parsed_results = parse_stable_releases(html_text + stable_releases.begin, stable_releases.end - stable_releases.begin);
 
     // may happen due to malloc failures or invalid inputs.
-    if (!reParsed.begin) {
+    if (!parsed_results.begin) {
         fputws(L"Error: Call to parse_stable_releases failed!\n", stderr);
         goto CLEANUP;
     }
 
-    CHAR pszSystemPython[BUFF_SIZE] = { 0 };
-    if (!get_system_python_version(pszSystemPython, BUFF_SIZE)) fputws(L"Error: Call to GetSystemPythonVersion failed!\n", stderr);
+    char syspy[BUFF_SIZE] = { 0 }; // system python
+    if (!get_system_python_version(syspy, BUFF_SIZE)) fputws(L"Error: Call to get_system_python_version failed!\n", stderr);
 
-    // print will handle empty instances of pszSystemPython internally.
-    print(reParsed, pszSystemPython);
+    // print will handle empty instances of syspy internally.
+    print(parsed_results, syspy);
 
     free(html_text);
-    free(reParsed.begin);
+    free(parsed_results.begin);
     return EXIT_SUCCESS;
 
 CLEANUP:

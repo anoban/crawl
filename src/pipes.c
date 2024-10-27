@@ -27,7 +27,7 @@
 static HANDLE64 this_process_stdin_handle = NULL, python_stdout_handle = NULL; //
 
 // launches python.exe that uses the previously created pipe as stdin & stderr
-bool __cdecl launch_python(void) {
+[[nodiscard]] bool __cdecl launch_python(void) {
     PROCESS_INFORMATION python_proc_info    = { 0 };
     const STARTUPINFOW  python_startup_info = {
          .cb          = sizeof(STARTUPINFO),
@@ -96,7 +96,7 @@ bool __cdecl launch_python(void) {
 }
 
 // reads python.exe's stdout and writes it to the buffer.
-bool __cdecl read_stdout_python(_Inout_ char* const restrict buffer, _In_ const unsigned long size) {
+[[nodiscard]] bool __cdecl read_stdout_python(_Inout_ char* const restrict buffer, _In_ const unsigned long size) {
     // if size(stdout) > size, write will be truncated
 
     unsigned long nread_bytes = 0;
@@ -107,7 +107,7 @@ bool __cdecl read_stdout_python(_Inout_ char* const restrict buffer, _In_ const 
     return read_status;
 }
 
-bool __cdecl get_system_python_version(_Inout_ char* const restrict version, _In_ const unsigned long size) {
+[[nodiscard]] bool __cdecl get_system_python_version(_Inout_ char* const restrict version, _In_ const unsigned long size) {
     // a struct to specify the security attributes of the pipes, .bInheritHandle = true makes pipe handles inheritable.
     const SECURITY_ATTRIBUTES sec_attrs = { .bInheritHandle = true, .lpSecurityDescriptor = NULL, .nLength = sizeof(SECURITY_ATTRIBUTES) };
 

@@ -25,7 +25,7 @@
 }
 
 // return the offset of the buffer where the stable releases start.
-range_t __cdecl locate_stable_releases_htmldiv(_In_ const char* const restrict html, _In_ const unsigned long size) {
+[[nodiscard]] range_t __cdecl locate_stable_releases_htmldiv(_In_ const char* const restrict html, _In_ const unsigned long size) {
     range_t delimiters = { .begin = 0, .end = 0 };
     if (!html) return delimiters;
 

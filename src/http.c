@@ -109,8 +109,9 @@ PREMATURE_RETURN:
     return (hinternet_triple_t) { .session = NULL, .connection = NULL, .request = NULL };
 }
 
-[[nodiscard("entails expensive http io"
-)]] char* __cdecl read_http_response(_In_ const hinternet_triple_t handles, _Inout_ unsigned long* const restrict size) {
+[[deprecated("use the more efficient read_http_response_ex"),
+  nodiscard("entails expensive http io"
+  )]] char* __cdecl read_http_response(_In_ const hinternet_triple_t handles, _Inout_ unsigned long* const restrict size) {
     // if the call to http_get() failed,
     if (!handles.session || !handles.connection || !handles.request) [[unlikely]] {
         fputws(L"read_http_response failed! (Errors in previous call to http_get)\n", stderr);
